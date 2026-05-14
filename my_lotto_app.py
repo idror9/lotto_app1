@@ -5,8 +5,8 @@ import random
 
 st.set_page_config(page_title="מנחש הלוטו החכם", page_icon="🎰", layout="wide")
 
-st.title("🎰 מחולל הגרלות: 12 חמים וחזק אחיד לכל הטפסים")
-st.write("בכל לחיצה יוגרלו 8 טבלאות עם מספר חזק אחד שנבחר מתוך המובילים")
+st.title("🎰 מחולל הגרלות: 12 חמים וחזק מכל הטווח")
+st.write("בכל לחיצה יוגרלו 8 טבלאות עם מספר חזק אחד שנבחר מתוך כל 7 האפשרויות")
 
 def parse_lotto_file(file_path):
     try:
@@ -57,24 +57,24 @@ if df is not None and not df.empty:
     hot_12 = [n for n, c in counts.most_common(12)]
     
     strong_counts = Counter(all_strong)
-    top_3_strong = [n for n, c in strong_counts.most_common(3)]
 
     st.subheader("🔥 נתוני השנה האחרונה")
     c1, c2 = st.columns(2)
     with c1:
-        st.write("**12 המספרים הרגילים החמים:**")
+        st.write("**12 המספרים הרגילים החמים (לפי שכיחות):**")
         st.write(", ".join(map(str, sorted(hot_12))))
     with c2:
-        st.write("**3 המספרים החזקים המובילים:**")
-        st.write(", ".join(map(str, top_3_strong)))
+        # הצגת הגרף כדי לראות את כל 7 המספרים החזקים
+        strong_data = pd.DataFrame([{'מספר חזק': str(i), 'פעמים': strong_counts.get(i, 0)} for i in range(1, 8)])
+        st.bar_chart(strong_data.set_index('מספר חזק'))
 
     st.divider()
 
-    if st.button("🎲 הגרל 8 טבלאות (עם חזק אחיד)"):
-        # בחירת מספר חזק אחד אקראי מתוך ה-3 המובילים עבור כל 8 הטבלאות
-        selected_strong = random.choice(top_3_strong)
+    if st.button("🎲 הגרל 8 טבלאות (חזק אחיד מתוך 1-7)"):
+        # בחירת מספר חזק אחד אקראי מתוך כל 7 האפשרויות
+        selected_strong = random.randint(1, 7)
         
-        st.subheader(f"📋 תוצאות ההגרלה (מספר חזק נבחר: {selected_strong})")
+        st.subheader(f"📋 תוצאות ההגרלה (מספר חזק שנבחר הפעם: {selected_strong})")
         
         for i in range(0, 8, 2):
             col1, col2 = st.columns(2)
@@ -89,12 +89,7 @@ if df is not None and not df.empty:
         
         st.balloons()
     else:
-        st.info("לחץ על הכפתור כדי לייצר שילובים חדשים. בכל לחיצה יבחר חזק אחד לכל הסט.")
-
-    st.divider()
-    strong_data = pd.DataFrame([{'מספר חזק': str(i), 'פעמים': strong_counts.get(i, 0)} for i in range(1, 8)])
-    st.write("📊 גרף שכיחות מספר חזק (שנה אחרונה):")
-    st.bar_chart(strong_data.set_index('מספר חזק'))
+        st.info("לחץ על הכפתור כדי לייצר שילובים חדשים. המערכת תבחר באקראי מספר חזק אחד מתוך הטווח המלא (1-7).")
 
 else:
     st.error("לא נמצא קובץ נתונים.")
