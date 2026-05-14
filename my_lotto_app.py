@@ -6,100 +6,89 @@ from collections import Counter
 
 st.set_page_config(page_title="מנחש הלוטו החכם", page_icon="🎰")
 st.title("🎰 מחשב מספרי לוטו חמים")
-st.write("המערכת שואבת נתונים ממפעל הפיס, מנתחת את השנה האחרונה ומבצעת צמצום.")
 
 def download_data():
-    # כתובת ישירה לקובץ האקסל
+    # כתובת חלופית וישירה יותר לקובץ
     url = "https://www.pais.co.il/Lotto/Pages/last_Results.aspx?download=1"
     
-    # הוספת Headers כדי לדמות דפדפן אמיתי (מונע חסימות)
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+        'Accept': 'application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, */*'
     }
     
     try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
+        # יצירת Session כדי לשמור על עוגיות (זה עוזר לעקוף חסימות)
+        session = requests.Session()
+        response = session.get(url, headers=headers, timeout=15)
         
-        # בדיקה אם התוכן שהתקבל הוא HTML במקום אקסל
+        # אם השרת חוסם, ננסה כתובת ישירה נוספת
+        if b'<html' in response.content.lower() or response.status_code != 200:
+            direct_url = "https://www.pais.co.il/Lotto/_layouts/15/PAIS.ListCreators/Handler/LottoResultsHandler.ashx?ListID=8e063d89-9b48-4389-9a25-f1262d590472&Mode=Download"
+            response = session.get(direct_url, headers=headers, timeout=15)
+
         if b'<html' in response.content.lower():
-            st.error("האתר החזיר דף אינטרנט במקום קובץ נתונים. ייתכן שיש חסימה זמנית או שינוי בכתובת.")
+            st.error("האתר של מפעל הפיס חוסם גישה אוטומטית כרגע. נסה שוב בעוד כמה דקות.")
             return None
             
-        # ניסיון קריאה כ-Excel
+        # ניסיון קריאה עם מנועים שונים
         try:
-            # מנסה לקרוא בפורמט המודרני
-            df = pd.read_excel(io.BytesIO(response.content), engine='openpyxl')
+            return pd.read_excel(io.BytesIO(response.content), engine='openpyxl')
         except:
-            # אם נכשל, מנסה כפורמט ישן (xls)
-            df = pd.read_excel(io.BytesIO(response.content))
+            return pd.read_excel(io.BytesIO(response.content), engine='xlrd')
             
-        return df
     except Exception as e:
-        st.error(f"שגיאה בהורדת הנתונים: {e}")
+        st.error(f"שגיאה טכנית: {e}")
         return None
 
 def analyze_logic(df):
-    # ניקוי שמות עמודות מרווחים
+    # ניקוי עמודות
     df.columns = [str(col).strip() for col in df.columns]
     
-    # הגדרת שמות העמודות כפי שהם מופיעים לרוב בקובץ של הפיס
-    lotto_cols = ['מספר1', 'מספר2', 'מספר3', 'מספר4', 'מספר5', 'מספר6']
-    strong_col = 'המספר החזק'
-    date_col = 'תאריך הגרלה'
+    # חיפוש עמודות לפי מילות מפתח (גמישות למקרה שהשם משתנה)
+    lotto_cols = [col for col in df.columns if 'מספר' in col and any(char.isdigit() for char in col)][:6]
+    strong_col = [col for col in df.columns if 'חזק' in col]
+    date_col = [col for col in df.columns if 'תאריך' in col]
 
-    # המרה לתאריכים וסינון שנה אחורה
-    if date_col in df.columns:
-        df[date_col] = pd.to_datetime(df[date_col], dayfirst=True, errors='coerce')
-        df = df.dropna(subset=[date_col])
-        last_year = pd.Timestamp.now() - pd.DateOffset(years=1)
-        df = df[df[date_col] > last_year]
-    
-    # וידוא שעמודות המספרים קיימות
-    available_cols = [c for c in lotto_cols if c in df.columns]
-    if not available_cols:
-        st.error(f"לא נמצאו עמודות מספרים. עמודות קיימות: {list(df.columns)}")
+    if not lotto_cols:
+        st.warning("לא הצלחתי לזהות את עמודות המספרים בקובץ.")
         return [], "לא נמצא"
 
-    all_nums = df[available_cols].values.flatten()
-    all_nums = [int(n) for n in all_nums if pd.notnull(n) and str(n).isdigit()]
-    counts = Counter(all_nums)
-    hot_10 = [num for num, count in counts.most_common(10)]
+    # סינון שנה אחורה
+    if date_col:
+        df[date_col[0]] = pd.to_datetime(df[date_col[0]], dayfirst=True, errors='coerce')
+        df = df.dropna(subset=[date_col[0]])
+        last_year = pd.Timestamp.now() - pd.DateOffset(years=1)
+        df = df[df[date_col[0]] > last_year]
     
+    # חישוב מספרים חמים
+    all_nums = df[lotto_cols].values.flatten()
+    all_nums = [int(n) for n in all_nums if pd.notnull(n) and str(n).replace('.0','').isdigit()]
+    hot_10 = [num for num, count in Counter(all_nums).most_common(10)]
+    
+    # מספר חזק
     hot_strong = "לא נמצא"
-    if strong_col in df.columns:
-        strong_nums = [int(n) for n in df[strong_col].values if pd.notnull(n) and str(n).isdigit()]
+    if strong_col:
+        strong_nums = [int(n) for n in df[strong_col[0]].values if pd.notnull(n) and str(n).replace('.0','').isdigit()]
         if strong_nums:
             hot_strong = Counter(strong_nums).most_common(1)[0][0]
 
     return sorted(hot_10), hot_strong
 
-def reduce_to_tables(hot_10):
-    if len(hot_10) < 10: return []
-    h = hot_10
-    return [
-        [h[0], h[1], h[2], h[3], h[4], h[5]],
-        [h[4], h[5], h[6], h[7], h[8], h[9]],
-        [h[0], h[2], h[4], h[6], h[8], h[9]],
-        [h[1], h[3], h[5], h[7], h[8], h[9]]
-    ]
-
-if st.button("חשב מספרים חמים וצמצם"):
-    with st.spinner('מושך נתונים ומנתח...'):
+# ממשק משתמש
+if st.button("בצע ניתוח נתונים"):
+    with st.spinner('מתחבר לשרת מפעל הפיס...'):
         data = download_data()
         if data is not None:
             hot_numbers, hot_strong = analyze_logic(data)
-            
             if hot_numbers:
-                st.subheader("🔥 10 המספרים החמים ביותר (שנה אחרונה)")
-                st.write(", ".join(map(str, hot_numbers)))
+                st.success("הנתונים נותחו בהצלחה!")
+                st.write(f"**10 החמים:** {', '.join(map(str, hot_numbers))}")
+                st.write(f"**חזק מומלץ:** {hot_strong}")
                 
-                st.subheader("🎯 המספר החזק הכי חם")
-                st.success(f"המספר החזק המומלץ: {hot_strong}")
-                
-                tables = reduce_to_tables(hot_numbers)
-                st.subheader("📋 טבלאות מוצעות (צמצום)")
-                for i, table in enumerate(tables, 1):
-                    st.info(f"**טבלה {i}:** {', '.join(map(str, sorted(table)))}")
-            else:
-                st.warning("לא נמצאו נתונים מתאימים לניתוח.")
+                # תצוגת טבלאות צמצום
+                st.divider()
+                st.subheader("📋 טבלאות לצילום (צמצום)")
+                h = hot_numbers
+                tables = [[h[0],h[1],h[2],h[3],h[4],h[5]], [h[4],h[5],h[6],h[7],h[8],h[9]], [h[0],h[2],h[4],h[6],h[8],h[9]]]
+                for i, t in enumerate(tables, 1):
+                    st.info(f"טבלה {i}: {sorted(t)}")
