@@ -1,62 +1,104 @@
 import streamlit as st
 import pandas as pd
-import requests
+from collections import Counter
 
-st.set_page_config(page_title="היסטוריית לוטו ממשלתית", page_icon="📈", layout="wide")
-st.title("📈 היסטוריית הגרלות לוטו - נתונים רשמיים")
+st.set_page_config(page_title="ניתוח לוטו שנתי", page_icon="🎰", layout="wide")
 
-def get_gov_data():
-    # שליפת נתונים ממאגר המידע הממשלתי הפתוח (חסין חסימות)
-    # זהו משאב של נתוני הגרלות הלוטו
-    resource_id = "f0067677-7440-4545-9372-b7b5c822e039" 
-    url = f"https://data.gov.il/api/3/action/datastore_search?resource_id={resource_id}&limit=1000"
-    
+st.title("🎰 ניתוח היסטוריית לוטו שנתית")
+st.write("המערכת מנתחת את הקובץ שיצרת ומציגה נתונים מהשנה האחרונה")
+
+def parse_lotto_file(file_path):
     try:
-        response = requests.get(url, timeout=15)
-        if response.status_code == 200:
-            data = response.json()
-            records = data['result']['records']
-            df = pd.DataFrame(records)
-            return df
-        return None
-    except Exception as e:
-        st.error(f"שגיאה בחיבור למאגר הממשלתי: {e}")
-        return None
-
-if st.button("טען היסטוריית הגרלות ממאגר הממשלה"):
-    with st.spinner('מתחבר למאגר הנתונים הממשלתי...'):
-        df = get_gov_data()
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = [line.strip() for line in f.readlines()]
         
-        if df is not None and not df.empty:
-            st.success("הנתונים נמשכו בהצלחה ממאגר data.gov.il")
+        records = []
+        current_record = {}
+        
+        i = 0
+        while i < len(lines):
+            line = lines[i]
             
-            # ניקוי וסידור הטבלה
-            # שמות העמודות במאגר הממשלתי עשויים להיות באנגלית או שונים במעט
-            st.subheader("20 ההגרלות האחרונות")
-            st.dataframe(df.head(20), use_container_width=True)
-            
-            # אפשרות להורדת הקובץ שנוצר מהמאגר
-            csv = df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button(
-                label="הורד את ההיסטוריה כקובץ CSV לטלפון",
-                data=csv,
-                file_name="lotto_history_gov.csv",
-                mime="text/csv",
-            )
-        else:
-            st.error("לא הצלחתי למשוך נתונים. המאגר הממשלתי לא זמין כרגע.")
-
-st.divider()
-st.write("### אפשרות ב': העלאה ידנית")
-uploaded_file = st.file_uploader("אם יש לך קובץ אקסל או CSV, העלה אותו כאן:", type=["xlsx", "csv", "xls"])
-
-if uploaded_file:
-    try:
-        if uploaded_file.name.endswith('.csv'):
-            df_manual = pd.read_csv(uploaded_file)
-        else:
-            df_manual = pd.read_excel(uploaded_file)
-        st.subheader("נתונים מהקובץ שהעלית:")
-        st.dataframe(df_manual)
+            if "תאריך הגרלה:" in line:
+                current_record['תאריך'] = lines[i+1]
+                i += 1
+            elif "המספר החזק:" in line:
+                try:
+                    current_record['חזק'] = int(lines[i+1])
+                except:
+                    pass
+                i += 1
+            elif "המספרים שעלו בגורל:" in line:
+                start = i + 1
+                if start < len(lines) and lines[start] == "":
+                    start += 1
+                nums = []
+                for j in range(6):
+                    if start + j < len(lines):
+                        try:
+                            nums.append(int(lines[start+j]))
+                        except:
+                            pass
+                current_record['מספרים'] = nums
+                i = start + 5
+            elif "סך הכל זכיות בהגרלה:" in line:
+                if 'תאריך' in current_record and 'מספרים' in current_record:
+                    records.append(current_record)
+                current_record = {}
+            i += 1
+        return pd.DataFrame(records)
     except Exception as e:
         st.error(f"שגיאה בקריאת הקובץ: {e}")
+        return None
+
+# טעינת הנתונים מהקובץ שהעלית
+df = parse_lotto_file('lotto2026.csv')
+
+if df is not None and not df.empty:
+    st.sidebar.success(f"זוהו {len(df)} הגרלות מהשנה האחרונה")
+    
+    # תצוגת טבלה
+    st.subheader("📜 היסטוריית הגרלות")
+    display_df = df.copy()
+    display_df['מספרים'] = display_df['מספרים'].apply(lambda x: ", ".join(map(str, x)))
+    st.dataframe(display_df, use_container_width=True)
+    
+    # חישוב סטטיסטיקה
+    all_numbers = []
+    all_strong = []
+    for index, row in df.iterrows():
+        all_numbers.extend(row['מספרים'])
+        if 'חזק' in row:
+            all_strong.append(row['חזק'])
+            
+    counts = Counter(all_numbers)
+    hot_10 = [n for n, c in counts.most_common(10)]
+    hot_10.sort()
+    
+    strong_counts = Counter(all_strong)
+    hot_strong = strong_counts.most_common(1)[0][0] if all_strong else "לא ידוע"
+
+    st.divider()
+    
+    # הצגת תוצאות הניתוח
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("🔥 10 המספרים החמים")
+        st.write(", ".join(map(str, hot_10)))
+    with col2:
+        st.subheader("🎯 המספר החזק הכי נפוץ")
+        st.metric("חזק מומלץ", hot_strong)
+
+    # טבלאות צמצום
+    st.subheader("📋 טבלאות צמצום מוצעות")
+    h = hot_10
+    if len(h) >= 10:
+        t1 = [h[0], h[1], h[2], h[3], h[4], h[5]]
+        t2 = [h[4], h[5], h[6], h[7], h[8], h[9]]
+        t3 = [h[0], h[2], h[4], h[6], h[8], h[9]]
+        
+        st.info(f"טבלה 1: {sorted(t1)} + חזק {hot_strong}")
+        st.info(f"טבלה 2: {sorted(t2)} + חזק {hot_strong}")
+        st.info(f"טבלה 3: {sorted(t3)} + חזק {hot_strong}")
+else:
+    st.warning("לא הצלחתי למצוא נתונים בקובץ. וודא ששם הקובץ בגיטהאב הוא בדיוק lotto2026.csv")
