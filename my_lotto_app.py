@@ -4,8 +4,8 @@ from collections import Counter
 
 st.set_page_config(page_title="מנחש הלוטו החכם", page_icon="🎰", layout="wide")
 
-st.title("🎰 ניתוח לוטו: 12 חמים וניתוח מספר חזק")
-st.write("ניתוח היסטוריית שנה מהקובץ האישי שלך")
+st.title("🎰 ניתוח לוטו: 12 חמים ו-8 טבלאות צמצום")
+st.write("התאמה למילוי טפסים זוגיים (8 טבלאות)")
 
 def parse_lotto_file(file_path):
     try:
@@ -52,57 +52,54 @@ if df is not None and not df.empty:
         all_numbers.extend(row['מספרים'])
         if 'חזק' in row: all_strong.append(row['חזק'])
             
-    # ניתוח מספרים רגילים
     counts = Counter(all_numbers)
     hot_12 = [n for n, c in counts.most_common(12)]
     hot_12.sort()
     
-    # ניתוח מספרים חזקים
     strong_counts = Counter(all_strong)
-    # יצירת טבלה לגרף
     strong_data = pd.DataFrame([
         {'מספר חזק': str(i), 'פעמים שהופיע': strong_counts.get(i, 0)} 
         for i in range(1, 8)
     ])
-    
-    # מציאת החזק הנפוץ ביותר
     hot_strong = strong_counts.most_common(1)[0][0] if all_strong else "N/A"
 
-    # תצוגה
     col_a, col_b = st.columns([1, 1])
-    
     with col_a:
         st.subheader("📊 התפלגות מספרים חזקים")
         st.bar_chart(strong_data.set_index('מספר חזק'))
-        st.info(f"המספר החזק שיצא הכי הרבה פעמים בשנה האחרונה הוא: **{hot_strong}**")
-
     with col_b:
-        st.subheader("🔥 12 המספרים הרגילים החמים")
+        st.subheader("🔥 12 המספרים החמים")
         st.write(", ".join(map(str, hot_12)))
-        st.write("מספרים אלו נבחרו כי הם בעלי שכיחות הופעה גבוהה ביותר במאגר.")
+        st.info(f"המספר החזק הנפוץ ביותר: **{hot_strong}**")
 
     st.divider()
-    st.subheader("📋 7 טבלאות צמצום למילוי")
-    st.write("הטבלאות מבוססות על 12 המספרים החמים והמספר החזק הנפוץ ביותר:")
+    st.subheader("📋 8 טבלאות צמצום למילוי")
+    st.write("הטבלאות מסודרות בזוגות כדי להקל על מילוי הטופס:")
 
     h = hot_12
     if len(h) >= 12:
+        # יצירת 8 קומבינציות לכיסוי אופטימלי של 12 מספרים
         combinations = [
-            [h[0], h[1], h[2], h[3], h[4], h[5]],
-            [h[6], h[7], h[8], h[9], h[10], h[11]],
-            [h[0], h[1], h[2], h[6], h[7], h[8]],
-            [h[3], h[4], h[5], h[9], h[10], h[11]],
-            [h[0], h[3], h[6], h[9], h[1], h[7]],
-            [h[2], h[5], h[8], h[11], h[4], h[10]],
-            [h[0], h[4], h[8], h[1], h[5], h[9]]
+            [h[0], h[1], h[2], h[3], h[4], h[5]],   # טבלה 1
+            [h[6], h[7], h[8], h[9], h[10], h[11]], # טבלה 2
+            [h[0], h[1], h[2], h[6], h[7], h[8]],   # טבלה 3
+            [h[3], h[4], h[5], h[9], h[10], h[11]], # טבלה 4
+            [h[0], h[3], h[6], h[9], h[2], h[11]],  # טבלה 5
+            [h[1], h[4], h[7], h[10], h[5], h[8]],  # טבלה 6
+            [h[0], h[2], h[4], h[6], h[8], h[10]],  # טבלה 7
+            [h[1], h[3], h[5], h[7], h[9], h[11]]   # טבלה 8 (משלימה)
         ]
         
-        for i, comb in enumerate(combinations, 1):
-            st.success(f"**טבלה {i}:** {sorted(comb)}  |  **חזק:** {hot_strong}")
+        # תצוגה בזוגות (כמו בטופס)
+        for i in range(0, 8, 2):
+            c1, c2 = st.columns(2)
+            with c1:
+                st.success(f"**טבלה {i+1}:** {sorted(combinations[i])} | **חזק:** {hot_strong}")
+            with c2:
+                st.success(f"**טבלה {i+2}:** {sorted(combinations[i+1])} | **חזק:** {hot_strong}")
     
     st.divider()
-    st.subheader("📜 ארכיון הגרלות (שנה אחרונה)")
+    st.subheader("📜 ארכיון הגרלות")
     st.dataframe(df, use_container_width=True)
-
 else:
     st.error("לא נמצא קובץ נתונים.")
