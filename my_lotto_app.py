@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
 from collections import Counter
+import random
 
 st.set_page_config(page_title="מנחש הלוטו החכם", page_icon="🎰", layout="wide")
 
-st.title("🎰 ניתוח לוטו: 12 חמים ו-8 טבלאות צמצום")
-st.write("התאמה למילוי טפסים זוגיים (8 טבלאות)")
+st.title("🎰 ניתוח לוטו: 12 חמים עם מחולל הגרלות")
+st.write("לחץ על הכפתור למטה כדי לייצר שילובים חדשים מתוך 12 המספרים החמים")
 
 def parse_lotto_file(file_path):
     try:
@@ -54,52 +55,44 @@ if df is not None and not df.empty:
             
     counts = Counter(all_numbers)
     hot_12 = [n for n, c in counts.most_common(12)]
-    hot_12.sort()
     
     strong_counts = Counter(all_strong)
-    strong_data = pd.DataFrame([
-        {'מספר חזק': str(i), 'פעמים שהופיע': strong_counts.get(i, 0)} 
-        for i in range(1, 8)
-    ])
     hot_strong = strong_counts.most_common(1)[0][0] if all_strong else "N/A"
 
-    col_a, col_b = st.columns([1, 1])
-    with col_a:
-        st.subheader("📊 התפלגות מספרים חזקים")
-        st.bar_chart(strong_data.set_index('מספר חזק'))
-    with col_b:
-        st.subheader("🔥 12 המספרים החמים")
-        st.write(", ".join(map(str, hot_12)))
-        st.info(f"המספר החזק הנפוץ ביותר: **{hot_strong}**")
+    # הצגת נתונים בסיסיים
+    st.subheader("🔥 12 המספרים החמים שזוהו")
+    st.write(", ".join(map(str, sorted(hot_12))))
+    st.info(f"המספר החזק הנפוץ ביותר: **{hot_strong}**")
 
     st.divider()
-    st.subheader("📋 8 טבלאות צמצום למילוי")
-    st.write("הטבלאות מסודרות בזוגות כדי להקל על מילוי הטופס:")
 
-    h = hot_12
-    if len(h) >= 12:
-        # יצירת 8 קומבינציות לכיסוי אופטימלי של 12 מספרים
-        combinations = [
-            [h[0], h[1], h[2], h[3], h[4], h[5]],   # טבלה 1
-            [h[6], h[7], h[8], h[9], h[10], h[11]], # טבלה 2
-            [h[0], h[1], h[2], h[6], h[7], h[8]],   # טבלה 3
-            [h[3], h[4], h[5], h[9], h[10], h[11]], # טבלה 4
-            [h[0], h[3], h[6], h[9], h[2], h[11]],  # טבלה 5
-            [h[1], h[4], h[7], h[10], h[5], h[8]],  # טבלה 6
-            [h[0], h[2], h[4], h[6], h[8], h[10]],  # טבלה 7
-            [h[1], h[3], h[5], h[7], h[9], h[11]]   # טבלה 8 (משלימה)
-        ]
+    # כפתור הגרלה
+    if st.button("🎲 הגרל 8 טבלאות חדשות מהמספרים החמים"):
+        st.subheader("📋 8 טבלאות שהוגרלו עבורך (מתוך ה-12)")
         
-        # תצוגה בזוגות (כמו בטופס)
+        generated_tables = []
+        for _ in range(8):
+            # בחירת 6 מספרים אקראיים מתוך ה-12 החמים
+            table = random.sample(hot_12, 6)
+            generated_tables.append(sorted(table))
+        
+        # תצוגה בזוגות
         for i in range(0, 8, 2):
             c1, c2 = st.columns(2)
             with c1:
-                st.success(f"**טבלה {i+1}:** {sorted(combinations[i])} | **חזק:** {hot_strong}")
+                st.success(f"**טבלה {i+1}:** {generated_tables[i]} | **חזק:** {hot_strong}")
             with c2:
-                st.success(f"**טבלה {i+2}:** {sorted(combinations[i+1])} | **חזק:** {hot_strong}")
-    
+                st.success(f"**טבלה {i+2}:** {generated_tables[i+1]} | **חזק:** {hot_strong}")
+        
+        st.balloons() # אפקט חגיגי
+    else:
+        st.info("לחץ על הכפתור למעלה כדי לייצר את הטבלאות למילוי.")
+
     st.divider()
-    st.subheader("📜 ארכיון הגרלות")
-    st.dataframe(df, use_container_width=True)
+    # גרף מספרים חזקים
+    strong_data = pd.DataFrame([{'מספר חזק': str(i), 'פעמים': strong_counts.get(i, 0)} for i in range(1, 8)])
+    st.subheader("📊 התפלגות המספר החזק")
+    st.bar_chart(strong_data.set_index('מספר חזק'))
+
 else:
     st.error("לא נמצא קובץ נתונים.")
