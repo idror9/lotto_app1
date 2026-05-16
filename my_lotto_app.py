@@ -61,36 +61,36 @@ if df is not None and not df.empty:
         if 'חזק' in row: all_strong.append(row['חזק'])
             
     counts = Counter(all_numbers)
-    hot_12 = [n for n, c in counts.most_common(12)]
     
-    strong_counts = Counter(all_strong)
-    # כל 7 המספרים החזקים לבחירה
-    all_possible_strong = list(range(1, 8))
+    # ניקח מאגר רחב יותר של מספרים מובילים (למשל 20 המספרים הנפוצים ביותר בשנה האחרונה)
+    top_numbers_pool = [n for n, c in counts.most_common(20)]
 
-    st.title("🎰 מחולל 8 טבלאות")
-    st.write("מבוסס על 12 המספרים הכי חמים בשנה האחרונה")
+    st.title("🎰 מחולל 8 טבלאות דינמי")
+    st.write("בכל לחיצה נבחרים 12 מספרים חמים שונים ומתוכם מורכבות הטבלאות")
 
     st.divider()
 
     if st.button("🎲 הגרל מספרים עכשיו"):
+        # בכל לחיצה נבחרים 12 מספרים אקראיים מתוך מאגר ה-20 החמים
+        current_hot_12 = random.sample(top_numbers_pool, 12)
+        
         # בחירת חזק אחיד מתוך כל ה-7
         selected_strong = random.randint(1, 7)
         
         st.subheader(f"נבחר מספר חזק: {selected_strong}")
         
-        # הצגת הטבלאות בצורה ברורה מאוד לנייד
+        # הצגת 12 המספרים שנבחרו להגרלה זו
+        st.write(f"**12 המספרים שנבחרו להגרלה זו:** {', '.join(map(str, sorted(current_hot_12)))}")
+        st.write("")
+        
+        # הגרלת 8 טבלאות מתוך ה-12 שנבחרו ברגע זה
         for i in range(1, 9):
-            nums = sorted(random.sample(hot_12, 6))
-            # הצגת כל טבלה בתיבה נפרדת וגדולה
+            nums = sorted(random.sample(current_hot_12, 6))
             st.info(f"**טבלה {i}:** \n\n {', '.join(map(str, nums))}  |  **חזק:** {selected_strong}")
         
         st.balloons()
     else:
         st.info("לחץ על הכפתור כדי לקבל את המספרים למילוי")
-
-    # הסבר קצר בסוף, ללא גרפים
-    with st.expander("לצפייה ב-12 המספרים החמים"):
-        st.write(", ".join(map(str, sorted(hot_12))))
 
 else:
     st.error("קובץ הנתונים לא נמצא")
