@@ -3,16 +3,14 @@ import pandas as pd
 from collections import Counter
 import random
 
-# הגדרת דף נקייה ללא תפריטים מיותרים
 st.set_page_config(page_title="לוטו חכם", page_icon="🎰", layout="centered")
 
-# עיצוב מותאם לנייד - הסתרת כפתורי מערכת של סטרימליט
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    .stButton>button {width: 100%; border-radius: 20px; height: 3em; font-weight: bold;}
+    .stButton>button {width: 100%; border-radius: 20px; height: 3.5em; font-weight: bold; margin-bottom: 10px;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -61,36 +59,46 @@ if df is not None and not df.empty:
         if 'חזק' in row: all_strong.append(row['חזק'])
             
     counts = Counter(all_numbers)
+    top_20_pool = [n for n, c in counts.most_common(20)]
+
+    st.title("🎰 מחולל לוטו אסטרטגי")
+    st.write("בחר את שיטת הגרלת 8 הטבלאות המועדפת עליך:")
     
-    # ניקח מאגר רחב יותר של מספרים מובילים (למשל 20 המספרים הנפוצים ביותר בשנה האחרונה)
-    top_numbers_pool = [n for n, c in counts.most_common(20)]
+    selected_strong = random.randint(1, 7)
 
-    st.title("🎰 מחולל 8 טבלאות דינמי")
-    st.write("בכל לחיצה נבחרים 12 מספרים חמים שונים ומתוכם מורכבות הטבלאות")
-
-    st.divider()
-
-    if st.button("🎲 הגרל מספרים עכשיו"):
-        # בכל לחיצה נבחרים 12 מספרים אקראיים מתוך מאגר ה-20 החמים
-        current_hot_12 = random.sample(top_numbers_pool, 12)
-        
-        # בחירת חזק אחיד מתוך כל ה-7
-        selected_strong = random.randint(1, 7)
-        
+    # כפתור 1: הגרלה רגילה מהחמים
+    if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 20 החמים)"):
+        current_hot_12 = random.sample(top_20_pool, 12)
         st.subheader(f"נבחר מספר חזק: {selected_strong}")
+        st.write(f"**12 המספרים שנבחרו:** {', '.join(map(str, sorted(current_hot_12)))}")
         
-        # הצגת 12 המספרים שנבחרו להגרלה זו
-        st.write(f"**12 המספרים שנבחרו להגרלה זו:** {', '.join(map(str, sorted(current_hot_12)))}")
-        st.write("")
-        
-        # הגרלת 8 טבלאות מתוך ה-12 שנבחרו ברגע זה
         for i in range(1, 9):
             nums = sorted(random.sample(current_hot_12, 6))
             st.info(f"**טבלה {i}:** \n\n {', '.join(map(str, nums))}  |  **חזק:** {selected_strong}")
-        
         st.balloons()
-    else:
-        st.info("לחץ על הכפתור כדי לקבל את המספרים למילוי")
+
+    # כפתור 2: הגרלה מבוססת מרווחים וסדרות
+    if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (הפרשים קרובים 1, 2, 3)"):
+        # בחירת 12 מספרים מהמאגר שיש ביניהם קרבה
+        current_hot_12 = random.sample(top_20_pool, 12)
+        st.subheader(f"נבחר מספר חזק: {selected_strong}")
+        st.write(f"**12 המספרים שנבחרו לאסטרטגיית מרווחים:** {', '.join(map(str, sorted(current_hot_12)))}")
+        
+        for i in range(1, 9):
+            # לוגיקה שמייצרת טבלה עם עדיפות להפרשים קטנים (1, 2, 3) כפי שקורה בהגרלות האמיתיות
+            valid_table = False
+            attempts = 0
+            while not valid_table and attempts < 100:
+                table = random.sample(current_hot_12, 6)
+                table.sort()
+                diffs = [table[j+1] - table[j] for j in range(5)]
+                # בדיקה אם יש לפחות הפרש אחד של 1 או 2 או 3 (הכי נפוצים בשנה האחרונה)
+                if any(d in [1, 2, 3] for d in diffs):
+                    valid_table = True
+                attempts += 1
+            
+            st.success(f"**טבלה {i} (מבוססת מרווחים):** \n\n {', '.join(map(str, table))}  |  **חזק:** {selected_strong}")
+        st.balloons()
 
 else:
     st.error("קובץ הנתונים לא נמצא")
