@@ -50,7 +50,7 @@ def parse_lotto_file(file_path):
     except:
         return None
 
-# טעינת הנתונים - שנה את השם בתוך המרכאות אם שינית את שם קובץ ה-CSV בגיטהאב
+# טעינת הנתונים - ודא ששם הקובץ תואם בדיוק למה שיש בגיטהאב
 records = parse_lotto_file('lotto2026.csv')
 
 if records:
@@ -112,19 +112,19 @@ if records:
     if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 20 החמים)"):
         current_hot_12 = random.sample(top_20_pool, 12)
         st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-        st.write(f"**12 המספרים שנבחרו להגרלה זו:** {', '.join(map(str, sorted(current_hot_12)))}")
+        st.write(f"12 המספרים שנבחרו להגרלה זו: {', '.join(map(str, sorted(current_hot_12)))}")
         st.write("")
         
         for i in range(1, 9):
             nums = sorted(random.sample(current_hot_12, 6))
-            st.info(f"**טבלה {i}:** \n\n {', '.join(map(str, nums))}  |  **חזק:** {selected_strong}")
+            st.info(f"טבלה {i}: \n\n {', '.join(map(str, nums))}  |  חזק: {selected_strong}")
         st.balloons()
 
     # כפתור 2: אסטרטגיית מרווחים (הפרשים קרובים של 1, 2 או 3)
     if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (הפרשים קרובים)"):
         current_hot_12 = random.sample(top_20_pool, 12)
         st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-        st.write(f"**12 המספרים שנבחרו לאסטרטגיית מרווחים:** {', '.join(map(str, sorted(current_hot_12)))}")
+        st.write(f"12 המספרים שנבחרו לאסטרטגיית מרווחים: {', '.join(map(str, sorted(current_hot_12)))}")
         st.write("")
         
         for i in range(1, 9):
@@ -140,8 +140,8 @@ if records:
                     valid_table = True
                 attempts += 1
             
-            st.success(f"**טבלה {i} (מבוססת מרווחים):** \n\n {', '.join(map(str, table))}  |  **חזק:** {selected_strong}")
+            st.success(f"טבלה {i} (מבוססת מרווחים): \n\n {', '.join(map(str, table))}  |  חזק: {selected_strong}")
         st.balloons()
 
 else:
-    st.error("קובץ הנתונים לא נמצא. ודא ששם הקובץ בקוד תואם לשם ב-GitHub.")
+    st.error("קובץ הנתונים לא נמצא. ודא ששם הקובץ בקוד (שורה 46) תואם בדיוק לשם הקובץ ב-GitHub.")
