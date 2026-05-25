@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from collections import Counter
 import random
-import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
 st.set_page_config(page_title="לוטו חכם", layout="centered")
@@ -28,7 +27,7 @@ def parse_lotto_file(file_path):
             if "תאריך הגרלה:" in line or "תאריך:" in line:
                 if current_record and 'תאריך' in current_record and 'מספרים' in current_record:
                     records.append(current_record)
-                current_record = {'תאריך': lines[i+1] if i+1 < len(lines) else "", 'זכיות_ערך': 0.0}
+                current_record = {'תאריך': lines[i+1] if i+1 < len(lines) else ""}
                 i += 1
             elif "המספר החזק:" in line:
                 try: current_record['חזק'] = int(lines[i+1])
@@ -44,33 +43,21 @@ def parse_lotto_file(file_path):
                         except: pass
                 current_record['מספרים'] = nums
                 i = start + 5
-            else:
-                # מנגנון חילוץ סכומים חכם: מחפש מספרים גדולים בשורות שקשורות לכסף או פרסים
-                keywords = ["זכיות", "פרס", "₪", "סכום", "שקל", "חלוקה", "תוצאות"]
-                if any(kw in line for kw in keywords):
-                    # מוצא את כל המספרים בשורה כולל כאלה עם פסיקים
-                    numbers_found = re.findall(r'\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\b|\b\d+\b', line)
-                    for num_str in numbers_found:
-                        try:
-                            clean_num = float(num_str.replace(',', ''))
-                            # אנחנו מחפשים את סכומי הפרסים הגדולים (למשל מעל 10,000 ש"ח) כדי לא לבלבל עם תאריכים או כמויות זוכים קטנות
-                            if clean_num > 10000 and clean_num > current_record.get('זכיות_ערך', 0):
-                                current_record['זכיות_ערך'] = clean_num
-                        except:
-                            pass
             i += 1
         if current_record and 'תאריך' in current_record and 'מספרים' in current_record:
             records.append(current_record)
-        return records, lines[:30] # מחזיר גם את 30 השורות הראשונות לבדיקה
-    except Exception as e:
-        return None, [str(e)]
+        return records
+    except:
+        return None
 
 # טעינת הנתונים
-records, raw_lines_preview = parse_lotto_file('lotto2026.csv')
+records = parse_lotto_file('lotto2026.csv')
 
 if records:
+    # הפיכת הרשימה לסדר כרונולוגי (מהישן לחדש) כדי לבדוק מה בא אחרי מה
     records.reverse()
     
+    # חילוץ נתונים כלליים למאגר המספרים החמים
     all_numbers = []
     for r in records:
         if 'מספרים' in r:
@@ -81,53 +68,28 @@ if records:
     
     st.title("🎰 מחולל לוטו אסטרטגי")
     
-    # --- תצוגת בדיקה טכנית למקרה של סכום 0 ---
-    all_values = [r['זכיות_ערך'] for r in records if r.get('זכיות_ערך', 0) > 0]
-    
-    if not all_values:
-        st.sidebar.warning("🛠️ בדיקת מבנה הקובץ:")
-        st.sidebar.write("הקוד לא מצא סכומים כספיים ברורות. הנה הצצה לאיך שהקובץ שלך בנוי בפנים:")
-        st.sidebar.code("\n".join(raw_lines_preview))
-    
-    st.subheader("💰 ניתוח פיננסי: מספרים חזקים וזכיות גדולות")
-    
-    global_average = sum(all_values) / len(all_values) if all_values else 0
-    
-    financial_data = []
-    for strong_num in range(1, 8):
-        matching_draws = [r for r in records if r.get('חזק') == strong_num]
-        
-        big_wins_count = sum(1 for r in matching_draws if r.get('זכיות_ערך', 0) >= global_average and global_average > 0)
-        
-        draw_values = [r['זכיות_ערך'] for r in matching_draws if r.get('זכיות_ערך', 0) > 0]
-        avg_win_amount = sum(draw_values) / len(draw_values) if draw_values else 0
-        
-        financial_data.append({
-            "מספר חזק": f"מספר {strong_num}",
-            "כמות זכיות גדולות השנה": f"{big_wins_count} זכיות" if global_average > 0 else "אין נתונים",
-            "סכום זכייה ממוצע": f"₪ {avg_win_amount:,.0f}" if avg_win_amount > 0 else "לא זוהה סכום בקובץ",
-            "סדר_מיון": avg_win_amount
-        })
-        
-    financial_df = pd.DataFrame(financial_data).sort_values(by="סדר_מיון", ascending=False).drop(columns=["סדר_מיון"])
-    st.dataframe(financial_df.set_index("מספר חזק"), use_container_width=True)
-    
-    st.divider()
-    
     st.subheader("🔮 בדיקת סיכוי למספר החזק הבא")
+    
+    # תיבת בחירה דינמית של המספר שיצא בהגרלה האחרונה
     chosen_strong = st.selectbox("בחר את המספר החזק שיצא בהגרלה האחרונה:", options=list(range(1, 8)), index=5)
     
+    # ניתוח הסטטיסטיקה העוקבת: מה יצא מיד אחרי המספר שנבחר
     next_strong_list = []
     for i in range(len(records) - 1):
         if records[i].get('חזק') == chosen_strong:
             next_draw = records[i+1]
-            if next_draw.get('חजק'):
+            if next_draw.get('חזק'):
                 next_strong_list.append(next_draw['חזק'])
                 
     total_cases = len(next_strong_list)
     counts_after_chosen = Counter(next_strong_list)
     
+    st.write(f"המספר **{chosen_strong}** יצא לאורך השנה {total_cases} פעמים בקובץ שלך.")
+    
     if total_cases > 0:
+        st.write("📊 **ההסתברות למספר החזק הבא (מסודר מהסיכוי הגבוה לנמוך):**")
+        
+        # בניית הנתונים וסידורם לפי שכיחות מהגבוה לנמוך
         stats_data = []
         for i in range(1, 8):
             times = counts_after_chosen.get(i, 0)
@@ -135,13 +97,49 @@ if records:
             stats_data.append({
                 "המספר החזק הבא": f"מספר {i}",
                 "כמה פעמים יצא אחריו השנה": f"{times} פעמים",
-                "אחוז סיכוי": f"{chance:.1f}%",
-                "סיכוי_עזר": chance
+                "סיכוי_סטטיסטי": chance,
+                "אחוז סיכוי": f"{chance:.1f}%"
             })
-        stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי_עזר", ascending=False).drop(columns=["סיכוי_עזר"])
+            
+        stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי_סטטיסטי", ascending=False).drop(columns=["סיכוי_סטטיסטי"])
         st.dataframe(stats_df.set_index("המספר החזק הבא"), use_container_width=True)
+    else:
+        st.info(f"לא נמצאו מספיק נתונים על הופעת המספר {chosen_strong} בקובץ.")
         
     st.divider()
     st.write("בחר את שיטת הגרלת 8 הטבלאות המועדפת עליך:")
     
-    selected_strong = random.
+    # הגרלת מספר חזק אחיד לסט הנוכחי (בין 1 ל-7)
+    selected_strong = random.randint(1, 7)
+
+    # כפתור 1: הגרלה דינמית מתוך 20 החמים
+    if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 20 החמים)"):
+        current_hot_12 = random.sample(top_20_pool, 12)
+        st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
+        st.write(f"12 המספרים שנבחרו להגרלה זו: {', '.join(map(str, sorted(current_hot_12)))}")
+        st.write("")
+        for i in range(1, 9):
+            nums = sorted(random.sample(current_hot_12, 6))
+            st.info(f"טבלה {i}: \n\n {', '.join(map(str, nums))}  |  חזק: {selected_strong}")
+        st.balloons()
+
+    # כפתור 2: אסטרטגיית מרווחים (הפרשים קרובים)
+    if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (הפרשים קרובים)"):
+        current_hot_12 = random.sample(top_20_pool, 12)
+        st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
+        st.write(f"12 המספרים שנבחרו לאסטרטגיית מרווחים: {', '.join(map(str, sorted(current_hot_12)))}")
+        st.write("")
+        for i in range(1, 9):
+            valid_table = False
+            attempts = 0
+            while not valid_table and attempts < 100:
+                table = random.sample(current_hot_12, 6)
+                table.sort()
+                diffs = [table[j+1] - table[j] for j in range(5)]
+                if any(d in [1, 2, 3] for d in diffs):
+                    valid_table = True
+                attempts += 1
+            st.success(f"טבלה {i} (מבוססת מרווחים): \n\n {', '.join(map(str, table))}  |  חזק: {selected_strong}")
+        st.balloons()
+else:
+    st.error("קובץ הנתונים 'lotto2026.csv' לא נמצא. ודא ששם הקובץ בגיטהאב תואם.")
