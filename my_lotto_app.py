@@ -43,13 +43,6 @@ def parse_lotto_file(file_path):
                         except: pass
                 current_record['מספרים'] = nums
                 i = start + 5
-            elif "סך הכל זכיות בהגרלה:" in line:
-                try:
-                    clean_val = lines[i+1].replace(',', '').replace('₪', '').strip()
-                    current_record['זכיות_ערך'] = float(clean_val)
-                except:
-                    current_record['זכיות_ערך'] = 0
-                i += 1
             i += 1
         if current_record and 'תאריך' in current_record and 'מספרים' in current_record:
             records.append(current_record)
@@ -61,7 +54,7 @@ def parse_lotto_file(file_path):
 records = parse_lotto_file('lotto2026.csv')
 
 if records:
-    # הפיכת הרשימה לסדר כרונולוגי (מהישן לחדש)
+    # הפיכת הרשימה לסדר כרונולוגי (מהישן לחדש) عشان נראה מה בא אחרי מה
     records.reverse()
     
     # חילוץ נתונים כלליים למאגר המספרים החמים
@@ -73,56 +66,49 @@ if records:
     counts = Counter(all_numbers)
     top_20_pool = [n for n, c in counts.most_common(20)]
     
-    # חישוב רף ל"זכייה גדולה" (לפי ממוצע הזכיות בקובץ)
-    all_values = [r['זכיות_ערך'] for r in records if 'זכיות_ערך' in r and r['זכיות_ערך'] > 0]
-    threshold = sum(all_values) / len(all_values) if all_values else 0
-    
     st.title("🎰 מחולל לוטו אסטרטגי")
     
-    # חיבור ממשק המשתמש לבחירת המספר החזק האחרון
-    st.subheader("🔮 ניתוח מספר חזק עוקב")
-    chosen_strong = st.selectbox("בחר את המספר החזק שיצא בהגרלה האחרונה:", options=list(range(1, 8)), index=5) # ברירת מחדל על 6
+    st.subheader("🔮 בדיקת סיכוי למספר החזק הבא")
     
-    # ניתוח סטטיסטי דינמי לפי המספר שנבחר
-    next_strong_all = []
-    next_strong_big_win = []
+    # תיבת בחירה של המספר שיצא עכשיו
+    chosen_strong = st.selectbox("בחר את המספר החזק שיצא בהגרלה האחרונה:", options=list(range(1, 8)), index=5)
     
+    # ניתוח הסטטיסטיקה העוקבת: מה יצא מיד אחרי המספר שנבחר
+    next_strong_list = []
     for i in range(len(records) - 1):
         if records[i].get('חזק') == chosen_strong:
             next_draw = records[i+1]
             if next_draw.get('חזק'):
-                next_strong_all.append(next_draw['חזק'])
-                if records[i].get('זכיות_ערך', 0) >= threshold:
-                    next_strong_big_win.append(next_draw['חזק'])
-                    
-    total_cases = len(next_strong_all)
-    counts_after_chosen = Counter(next_strong_all)
-    counts_big_after_chosen = Counter(next_strong_big_win)
+                next_strong_list.append(next_draw['חזק'])
+                
+    total_cases = len(next_strong_list)
+    counts_after_chosen = Counter(next_strong_list)
     
-    st.write(f"המספר החזק **{chosen_strong}** הופיע {total_cases} פעמים לאורך השנה בקובץ שלך.")
+    st.write(f"המספר **{chosen_strong}** יצא לאורך השנה {total_cases} פעמים.")
     
     if total_cases > 0:
-        # בניית טבלת הנתונים המשולבת
+        st.write(f"📊 **ההסתברות למספר החזק הבא (מסודר מהסיכוי הגבוה לנמוך):**")
+        
+        # בניית נתונים וסידורם לפי השכיחות (מהגבוה לנמוך)
         stats_data = []
         for i in range(1, 8):
-            times_all = counts_after_chosen.get(i, 0)
-            chance_all = (times_all / total_cases) * 100
-            
-            times_big = counts_big_after_chosen.get(i, 0)
-            chance_big = (times_big / len(next_strong_big_win)) * 100 if next_strong_big_win else 0
-            
+            times = counts_after_chosen.get(i, 0)
+            chance = (times / total_cases) * 100
             stats_data.append({
-                "מספר חזק בהגרלה הבאה": i,
-                "שכיחות כללית (פעמים)": times_all,
-                "הסתברות כללית": f"{chance_all:.1f}%",
-                "שכיחות בזכייה גדולה (פעמים)": times_big,
-                "הסתברות בזכייה גדולה": f"{chance_big:.1f}%" if next_strong_big_win else "0.0%"
+                "המספר החזק הבא": f"מספר {i}",
+                "כמה פעמים יצא אחריו השנה": f"{times} פעמים",
+                "סיכוי סטטיסטי": chance,
+                "אחוז סיכוי": f"{chance:.1f}%"
             })
             
-        stats_df = pd.DataFrame(stats_data)
-        st.dataframe(stats_df.set_index("מספר חזק בהגרלה הבאה"), use_container_width=True)
+        # מיון הנתונים מהשכיח ביותר להכי פחות שכיח
+        stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי סטטיסטי", ascending=False)
+        # הסרת עמודת העזר של המיון לצורך תצוגה נקייה
+        stats_df = stats_df.drop(columns=["סיכוי סטטיסטי"])
+        
+        st.dataframe(stats_df.set_index("המספר החזק הבא"), use_container_width=True)
     else:
-        st.info(f"לא נמצאו מספיק נתונים על הופעת המספר {chosen_strong} בקובץ.")
+        st.info(f"לא נמצאו מקרים שבהם המספר {chosen_strong} הופיע בקובץ, ולכן אין עדיין מידע מה יוצא אחריו.")
         
     st.divider()
     st.write("בחר את שיטת הגרלת 8 הטבלאות המועדפת עליך:")
