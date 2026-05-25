@@ -27,7 +27,7 @@ def parse_lotto_file(file_path):
             if "תאריך הגרלה:" in line:
                 if current_record and 'תאריך' in current_record and 'מספרים' in current_record:
                     records.append(current_record)
-                current_record = {'תאריך': lines[i+1]}
+                current_record = {'תאריך': lines[i+1], 'זכיות_ערך': 0}
                 i += 1
             elif "המספר החזק:" in line:
                 try: current_record['חזק'] = int(lines[i+1])
@@ -43,13 +43,17 @@ def parse_lotto_file(file_path):
                         except: pass
                 current_record['מספרים'] = nums
                 i = start + 5
-            elif "סך הכל זכיות בהגרלה:" in line:
-                try:
-                    clean_val = lines[i+1].replace(',', '').replace('₪', '').strip()
-                    current_record['זכיות_ערך'] = float(clean_val)
-                except:
-                    current_record['זכיות_ערך'] = 0
-                i += 1
+            elif "זכיות" in line or "פרס" in line or "₪" in line:
+                # סריקה בטוחה של השורות הבאות למציאת מספר או סכום כספי
+                for offset in range(1, 3):
+                    if i + offset < len(lines):
+                        next_line = lines[i+offset].strip()
+                        clean_val = next_line.replace(',', '').replace('₪', '').replace(' ', '').strip()
+                        if clean_val.isdigit():
+                            val = float(clean_val)
+                            if val > current_record.get('זכיות_ערך', 0):
+                                current_record['זכיות_ערך'] = val
+                                break
             i += 1
         if current_record and 'תאריך' in current_record and 'מספרים' in current_record:
             records.append(current_record)
@@ -61,10 +65,8 @@ def parse_lotto_file(file_path):
 records = parse_lotto_file('lotto2026.csv')
 
 if records:
-    # הפיכת הרשימה לסדר כרונולוגי
     records.reverse()
     
-    # חילוץ נתונים כלליים למאגר המספרים החמים
     all_numbers = []
     for r in records:
         if 'מספרים' in r:
@@ -77,31 +79,25 @@ if records:
     
     st.subheader("💰 ניתוח פיננסי: מספרים חזקים וזכיות גדולות")
     
-    # חישוב רף ממוצע לזכייה גדולה מתוך כל הקובץ
     all_values = [r['זכיות_ערך'] for r in records if 'זכיות_ערך' in r and r['זכיות_ערך'] > 0]
     global_average = sum(all_values) / len(all_values) if all_values else 0
     
-    # בניית הסטטיסטיקה הפיננסית לכל מספר חזק (1 עד 7)
     financial_data = []
     for strong_num in range(1, 8):
-        # סינון ההגרלות שבהן עלה המספר החזק הנוכחי
         matching_draws = [r for r in records if r.get('חזק') == strong_num]
         
-        # ספירת כמה מתוכן עברו את רף הזכייה הגדולה
-        big_wins_count = sum(1 for r in matching_draws if r.get('זכיות_ערך', 0) >= global_average)
+        big_wins_count = sum(1 for r in matching_draws if r.get('זכיות_ערך', 0) >= global_average and global_average > 0)
         
-        # חישוב סכום הזכייה הממוצע הספציפי למספר החזק הזה
         draw_values = [r['זכיות_ערך'] for r in matching_draws if 'זכיות_ערך' in r and r['זכיות_ערך'] > 0]
         avg_win_amount = sum(draw_values) / len(draw_values) if draw_values else 0
         
         financial_data.append({
             "מספר חזק": f"מספר {strong_num}",
             "כמות זכיות גדולות השנה": f"{big_wins_count} זכיות",
-            "סכום זכייה ממוצע": f"₪ {avg_win_amount:,.0f}",
+            "סכום זכייה ממוצע": f"₪ {avg_win_amount:,.0f}" if avg_win_amount > 0 else "אין נתוני סכום",
             "סדר_מיון": avg_win_amount
         })
         
-    # מיון הטבלה מהסכום הממוצע הגבוה ביותר לנמוך ביותר
     financial_df = pd.DataFrame(financial_data).sort_values(by="סדר_מיון", ascending=False)
     financial_df = financial_df.drop(columns=["סדר_מיון"])
     
@@ -110,7 +106,6 @@ if records:
     
     st.divider()
     
-    # --- חלק 2: בדיקת סיכוי למספר החזק הבא (התכונה מהשלב הקודם) ---
     st.subheader("🔮 בדיקת סיכוי למספר החזק הבא")
     chosen_strong = st.selectbox("בחר את המספר החזק שיצא בהגרלה האחרונה:", options=list(range(1, 8)), index=5)
     
