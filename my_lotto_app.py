@@ -43,6 +43,13 @@ def parse_lotto_file(file_path):
                         except: pass
                 current_record['מספרים'] = nums
                 i = start + 5
+            elif "סך הכל זכיות בהגרלה:" in line:
+                try:
+                    clean_val = lines[i+1].replace(',', '').replace('₪', '').strip()
+                    current_record['זכיות_ערך'] = float(clean_val)
+                except:
+                    current_record['זכיות_ערך'] = 0
+                i += 1
             i += 1
         if current_record and 'תאריך' in current_record and 'מספרים' in current_record:
             records.append(current_record)
@@ -54,7 +61,7 @@ def parse_lotto_file(file_path):
 records = parse_lotto_file('lotto2026.csv')
 
 if records:
-    # הפיכת הרשימה לסדר כרונולוגי (מהישן לחדש) عشان נראה מה בא אחרי מה
+    # הפיכת הרשימה לסדר כרונולוגי
     records.reverse()
     
     # חילוץ נתונים כלליים למאגר המספרים החמים
@@ -68,12 +75,45 @@ if records:
     
     st.title("🎰 מחולל לוטו אסטרטגי")
     
-    st.subheader("🔮 בדיקת סיכוי למספר החזק הבא")
+    st.subheader("💰 ניתוח פיננסי: מספרים חזקים וזכיות גדולות")
     
-    # תיבת בחירה של המספר שיצא עכשיו
+    # חישוב רף ממוצע לזכייה גדולה מתוך כל הקובץ
+    all_values = [r['זכיות_ערך'] for r in records if 'זכיות_ערך' in r and r['זכיות_ערך'] > 0]
+    global_average = sum(all_values) / len(all_values) if all_values else 0
+    
+    # בניית הסטטיסטיקה הפיננסית לכל מספר חזק (1 עד 7)
+    financial_data = []
+    for strong_num in range(1, 8):
+        # סינון ההגרלות שבהן עלה המספר החזק הנוכחי
+        matching_draws = [r for r in records if r.get('חזק') == strong_num]
+        
+        # ספירת כמה מתוכן עברו את רף הזכייה הגדולה
+        big_wins_count = sum(1 for r in matching_draws if r.get('זכיות_ערך', 0) >= global_average)
+        
+        # חישוב סכום הזכייה הממוצע הספציפי למספר החזק הזה
+        draw_values = [r['זכיות_ערך'] for r in matching_draws if 'זכיות_ערך' in r and r['זכיות_ערך'] > 0]
+        avg_win_amount = sum(draw_values) / len(draw_values) if draw_values else 0
+        
+        financial_data.append({
+            "מספר חזק": f"מספר {strong_num}",
+            "כמות זכיות גדולות השנה": f"{big_wins_count} זכיות",
+            "סכום זכייה ממוצע": f"₪ {avg_win_amount:,.0f}",
+            "סדר_מיון": avg_win_amount
+        })
+        
+    # מיון הטבלה מהסכום הממוצע הגבוה ביותר לנמוך ביותר
+    financial_df = pd.DataFrame(financial_data).sort_values(by="סדר_מיון", ascending=False)
+    financial_df = financial_df.drop(columns=["סדר_מיון"])
+    
+    st.write("הטבלה מסודרת מהמספר שהביא את הפרס הממוצע הגבוה ביותר להכי נמוך:")
+    st.dataframe(financial_df.set_index("מספר חזק"), use_container_width=True)
+    
+    st.divider()
+    
+    # --- חלק 2: בדיקת סיכוי למספר החזק הבא (התכונה מהשלב הקודם) ---
+    st.subheader("🔮 בדיקת סיכוי למספר החזק הבא")
     chosen_strong = st.selectbox("בחר את המספר החזק שיצא בהגרלה האחרונה:", options=list(range(1, 8)), index=5)
     
-    # ניתוח הסטטיסטיקה העוקבת: מה יצא מיד אחרי המספר שנבחר
     next_strong_list = []
     for i in range(len(records) - 1):
         if records[i].get('חזק') == chosen_strong:
@@ -84,12 +124,7 @@ if records:
     total_cases = len(next_strong_list)
     counts_after_chosen = Counter(next_strong_list)
     
-    st.write(f"המספר **{chosen_strong}** יצא לאורך השנה {total_cases} פעמים.")
-    
     if total_cases > 0:
-        st.write(f"📊 **ההסתברות למספר החזק הבא (מסודר מהסיכוי הגבוה לנמוך):**")
-        
-        # בניית נתונים וסידורם לפי השכיחות (מהגבוה לנמוך)
         stats_data = []
         for i in range(1, 8):
             times = counts_after_chosen.get(i, 0)
@@ -97,18 +132,11 @@ if records:
             stats_data.append({
                 "המספר החזק הבא": f"מספר {i}",
                 "כמה פעמים יצא אחריו השנה": f"{times} פעמים",
-                "סיכוי סטטיסטי": chance,
-                "אחוז סיכוי": f"{chance:.1f}%"
+                "אחוז סיכוי": f"{chance:.1f}%",
+                "סיכוי_עזר": chance
             })
-            
-        # מיון הנתונים מהשכיח ביותר להכי פחות שכיח
-        stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי סטטיסטי", ascending=False)
-        # הסרת עמודת העזר של המיון לצורך תצוגה נקייה
-        stats_df = stats_df.drop(columns=["סיכוי סטטיסטי"])
-        
+        stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי_עזר", ascending=False).drop(columns=["סיכוי_עזר"])
         st.dataframe(stats_df.set_index("המספר החזק הבא"), use_container_width=True)
-    else:
-        st.info(f"לא נמצאו מקרים שבהם המספר {chosen_strong} הופיע בקובץ, ולכן אין עדיין מידע מה יוצא אחריו.")
         
     st.divider()
     st.write("בחר את שיטת הגרלת 8 הטבלאות המועדפת עליך:")
