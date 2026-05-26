@@ -5,7 +5,7 @@ import random
 import os
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - גרסה יציבה", layout="centered")
+st.set_page_config(page_title="לוטו חכם - גרסה סופית ויציבה", layout="centered")
 
 st.markdown("""
     <style>
@@ -36,11 +36,9 @@ def load_mifal_hapais_file():
     if file_path is None:
         return None
 
-    # ניסיון טעינה עם סוגי קידוד שונים
     df = None
     for enc in ['windows-1255', 'utf-8', 'utf-8-sig', 'ansi']:
         try:
-            # קובץ מפעל הפיס משתמש לעיתים בפסיק או נקודה-פסיק כמפריד
             df = pd.read_csv(file_path, encoding=enc, sep=None, engine='python')
             break
         except:
@@ -52,11 +50,11 @@ def load_mifal_hapais_file():
     records = []
     
     try:
-        # הפיכת כל תתי-הערכים בקובץ למספרים בצורה נקייה
+        # ניקוי כותרות
+        df.columns = df.columns.str.strip()
         numeric_df = df.apply(pd.to_numeric, errors='coerce')
         
-        # בקובץ של מפעל הפיס, 6 המספרים והמספר החזק מופיעים תמיד כגוש של עמודות מספריות.
-        # נסנן רק את העמודות שיש בהן מספרים בטווח של הלוטו.
+        # איתור עמודות רלוונטיות
         valid_cols = []
         for col in df.columns:
             cleaned_series = numeric_df[col].dropna()
@@ -64,8 +62,6 @@ def load_mifal_hapais_file():
                 valid_cols.append(col)
                 
         if len(valid_cols) >= 7:
-            # בקובץ המקור: 6 העמודות הראשונות בגוש הן המספרים הרגילים, והאחרונה (או אחת מהן) היא החזק.
-            # נאתר ספציפית את עמודת החזק לפי השם או לפי המיקום (לרוב העמודה ה-7 בגוש המספרים)
             strong_col = None
             for col in valid_cols:
                 if 'חזק' in str(col) or 'strong' in str(col).lower():
@@ -73,7 +69,6 @@ def load_mifal_hapais_file():
                     break
                     
             if not strong_col:
-                # אם אין שם עמודה ברור, מספר חזק הוא תמיד בטווח 1-7 בלבד
                 for col in valid_cols:
                     if numeric_df[col].dropna().between(1, 7).all():
                         strong_col = col
@@ -84,7 +79,6 @@ def load_mifal_hapais_file():
                 
             num_cols = [c for c in valid_cols if c != strong_col][:6]
             
-            # חילוץ השורות
             for _, row in df.iterrows():
                 try:
                     vals = [int(row[c]) for c in num_cols if pd.notna(row[c])]
@@ -100,37 +94,12 @@ def load_mifal_hapais_file():
     except:
         pass
         
-    # הגנת גיבוי: אם הניתוח המורכב נכשל, נחלץ מספרים בצורה גולמית לפי פסיקים
-    if not records:
-        try:
-            with open(file_path, 'r', encoding='windows-1255', errors='ignore') as f:
-                lines = f.readlines()
-            if len(lines) <= 1:
-                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    lines = f.readlines()
-                    
-            for line in lines[1:]:
-                parts = re.findall(r'\b\d+\b', line)
-                if len(parts) >= 7:
-                    ints = [int(p) for p in parts]
-                    # סינון קלאסי של מפעל הפיס (6 מספרים ראשונים בטווח, ומספר אחרון חזק)
-                    lotto_nums = [n for n in ints if 1 <= n <= 37]
-                    strong_candidates = [n for n in ints if 1 <= n <= 7]
-                    if len(lotto_nums) >= 6 and strong_candidates:
-                        records.append({
-                            'מספרים': lotto_nums[:6],
-                            'חזק': strong_candidates[-1],
-                            'פרס_גדול': True
-                        })
-                except:
-                    continue
-                    
     return records
 
 # טעינת הנתונים האמיתיים
 all_historical_records = load_mifal_hapais_file()
 
-# הגנת חירום: אם הקובץ עדיין לא פוענח, נייצר מאגר בסיסי כדי למנוע קריסה של הכפתורים
+# הגנת חירום למקרה שהקובץ ריק
 if not all_historical_records:
     all_historical_records = []
     random.seed(42)
@@ -144,11 +113,11 @@ if not all_historical_records:
 else:
     is_simulation = False
 
-# קובץ מפעל הפיס מסודר מהחדש לישן, נהפוך אותו לצורך בדיקת רצפים כרונולוגיים קדימה בזמן
+# היפוך כרונולוגי של קובץ האמת (מהישן לחדש)
 if not is_simulation:
     all_historical_records.reverse()
 
-# חיתוך מדויק של 104 ההגרלות האחרונות ביותר (שנה אחת מלאה אחורה)
+# חיתוך 104 ההגרלות האחרונות (שנה אחורה)
 records_year = all_historical_records[-104:] if len(all_historical_records) >= 104 else all_historical_records
 
 all_numbers = []
@@ -160,7 +129,6 @@ for r in records_year:
 counts = Counter(all_numbers)
 strong_counts = Counter(all_strong)
 
-# הבטחה שיש תמיד 20 מספרים במאגר החמים כדי למנוע את שגיאת ה-ValueError
 top_20_pool = [n for n, c in counts.most_common(20)]
 if len(top_20_pool) < 20:
     remaining = [n for n in range(1, 38) if n not in top_20_pool]
@@ -170,7 +138,7 @@ cold_numbers = [n for n in range(1, 38) if n not in top_20_pool][:7]
 
 st.title("🎰 לוטו חכם: מנוע אנליזה")
 if is_simulation:
-    st.warning("⚠️ המערכת קוראת את הקובץ בגיטהאב אך המבנה שלו ריק או לא מזוהה. מציג נתוני מודל סימולציה זמניים כדי למנוע קריסה.")
+    st.warning("⚠️ המערכת קוראת את הקובץ בגיטהאב אך מבנהו לא זוהה. מציג נתוני סימולציה זמניים.")
 else:
     st.success(f"✔️ החיבור הצליח! מנתח {len(records_year)} הגרלות אמת מהקובץ הרשמי.")
 
@@ -181,7 +149,6 @@ financial_data = []
 for strong_num in range(1, 8):
     matching_draws = [r for r in records_year if r.get('חזק') == strong_num]
     total_draws_for_num = len(matching_draws)
-    
     final_power = (strong_counts.get(strong_num, 0) / len(records_year) * 100) if records_year else 0
     
     financial_data.append({
@@ -196,7 +163,7 @@ st.dataframe(financial_df.set_index("מספר חזק"), use_container_width=True
 
 st.divider()
 
-# === חלק 2: לוח תחזיות מבוסס 5 הסעיפים ===
+# === חלק 2: לוח תחזיות ===
 st.header("🔮 תמונת המצב והתחזית הטכנולוגית")
 
 with st.expander("📊 סעיף 1: ניתוח סטטיסטי (חמים מול קרים)"):
@@ -235,7 +202,7 @@ chosen_strong = st.selectbox("בחר את המספר החזק שיצא בהגר�
 
 next_strong_list = []
 for i in range(len(records_year) - 1):
-    if records_year[i].get('חजק') == chosen_strong:
+    if records_year[i].get('חזק') == chosen_strong:
         next_draw = records_year[i+1]
         if next_draw.get('חזק'): 
             next_strong_list.append(next_draw['חזק'])
