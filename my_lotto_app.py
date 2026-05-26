@@ -2,10 +2,9 @@ import streamlit as st
 import pandas as pd
 from collections import Counter
 import random
-import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - גרסה סופית ומדויקת", layout="centered")
+st.set_page_config(page_title="לוטו חכם - גרסת דאטה", layout="centered")
 
 st.markdown("""
     <style>
@@ -16,78 +15,56 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-def parse_lotto_file(file_path):
+@st.cache_data
+def load_clean_data(file_path):
     try:
-        with open(file_path, 'r', encoding='utf8') as f:
-            content = f.read()
-            
-        # פיצול הקובץ לפי בלוקים של הגרלות (כל פעם שמופיעה המילה תאריך)
-        chunks = re.split(r'(?=תאריך)', content)
-        records = []
+        # טעינת קובץ ה-CSV ישירות באמצעות פנדס
+        df = pd.read_csv(file_path, encoding='utf8')
         
-        for chunk in chunks:
-            lines = [ln.strip() for ln in chunk.split('\n') if ln.strip()]
-            if not lines:
+        # ניקוי רווחים משמות העמודות
+        df.columns = df.columns.str.strip()
+        
+        records = []
+        for _, row in df.iterrows():
+            try:
+                # התאמת שמות העמודות - שנה כאן אם שמות העמודות בקובץ שלך שונים
+                # הקוד מחפש עמודות שמכילות את המילים 'מספר' או 'חזק'
+                num_cols = [col for col in df.columns if 'מספר' in col and col != 'המספר החזק'][:6]
+                if not num_cols:
+                    # ניסיון תואם למבנה אנגלי (Num1, Num2 וכו')
+                    num_cols = [col for col in df.columns if 'num' in col.lower()][:6]
+                
+                strong_col = [col for col in df.columns if 'חזק' in col or 'strong' in col.lower()]
+                
+                if len(num_cols) >= 6 and strong_col:
+                    nums = [int(row[c]) for c in num_cols]
+                    strong = int(row[strong_col[0]])
+                    
+                    # בדיקה אם יש עמודת פרסים או זכיות
+                    has_prize = any('פרס' in str(col) or 'זכיות' in str(col) for col in df.columns)
+                    
+                    records.append({
+                        'מספרים': nums,
+                        'חזק': strong,
+                        'פרס_גדול': has_prize
+                    })
+            except:
                 continue
-                
-            record = {'מספרים': [], 'חזק': None, 'פרס_גדול': False}
-            
-            # בדיקה אם יש זכיות בבלוק הנוכחי
-            if any("זכיות" in ln or "פרס" in ln or "סך הכל" in ln for ln in lines):
-                record['פרס_גדול'] = True
-                
-            # חילוץ כל המספרים הבודדים שמופיעים בבלוק הזה
-            all_numbers_in_chunk = []
-            for line in lines:
-                # מוצא את כל המספרים בשורה
-                found = re.findall(r'\b\d+\b', line)
-                for num_str in found:
-                    val = int(num_str)
-                    # סינון מספרים שאינם קשורים (שנים, ימים, כמויות זוכים גדולות)
-                    if val <= 37:
-                        all_numbers_in_chunk.append(val)
-            
-            # חילוץ 6 המספרים הרגילים והמספר החזק מתוך רצף המספרים שזוהו
-            # בדרך כלל בקובץ, 6 המספרים מופיעים ברצף, והמספר החזק מופיע בנפרד או בסוף
-            # נחפש ספציפית את השורה של המספר החזק כדי לדייק
-            for line in lines:
-                if "חזק" in line:
-                    strong_digits = re.findall(r'\b[1-7]\b', line)
-                    if strong_strong_digits := [int(d) for d in strong_digits if 1 <= int(d) <= 7]:
-                        record['חזק'] = strong_strong_digits[0]
-            
-            # חילוץ 6 המספרים הרגילים (המספרים שנמצאים בטווח 1-37 ואינם החזק)
-            regular_candidates = [n for n in all_numbers_in_chunk if 1 <= n <= 37 and n != record['חזק']]
-            
-            # אם לא מצאנו חזק מקודם, ניקח את המספר האחרון ברשימה שעונה לתנאי 1-7
-            if record['חזק'] is None:
-                possible_strong = [n for n in all_numbers_in_chunk if 1 <= n <= 7]
-                if possible_strong:
-                    record['חזק'] = possible_strong[-1]
-                    regular_candidates = [n for n in all_numbers_in_chunk if 1 <= n <= 37 and n != record['חזק']]
-            
-            # לוקחים את 6 המספרים הראשונים שמתאימים
-            if len(regular_candidates) >= 6:
-                record['מספרים'] = regular_candidates[:6]
-                
-            if record['מספרים'] and record['חזק']:
-                records.append(record)
-                
-        return records
-    except:
-        return None
+        return records, list(df.columns)
+    except Exception as e:
+        return None, [str(e)]
 
 # טעינת הנתונים
-all_records = parse_lotto_file('lotto2026.csv')
+records_year, columns_found = load_clean_data('lotto2026.csv')
 
-if all_records:
-    # חיתוך מדויק של 104 ההגרלות האחרונות ביותר מתוך הקובץ (שנה אחורה קלנדרית)
-    records_year = all_records[:104]
+if records_year:
+    # לקיחת 104 ההגרלות האחרונות (שנה אחורה)
+    records_year = records_year[:104]
     
-    # הפיכת הרשימה לסדר כרונולוגי ישר (מהישן לחדש) לצורך ניתוח מה בא אחרי מה
+    # סידור כרונולוגי מהישן לחדש
     records_year.reverse()
     
-    # חילוץ מאגרים לשנה האחרונה
+    # חילוץ מאגרים
     all_numbers = []
     all_strong = []
     for r in records_year:
@@ -97,12 +74,11 @@ if all_records:
     counts = Counter(all_numbers)
     strong_counts = Counter(all_strong)
     
-    # מאגר חמים וקרים של השנה האחרונה
     top_20_pool = [n for n, c in counts.most_common(20)]
     cold_numbers = [n for n in range(1, 38) if n not in top_20_pool][:7]
     
     st.title("🎰 לוטו חכם: ניתוח 365 ימים אחרונים")
-    st.caption(f"הנתונים מבוססים על {len(records_year)} ההגרלות האחרונות שנקראו בהצלחה מהקובץ.")
+    st.caption(f"הנתונים מבוססים על {len(records_year)} הגרלות שנקראו בהצלחה באמצעות טבלת Pandas.")
     
     # === חלק 1: ניתוח פיננסי ===
     st.subheader("💰 ניתוח פיננסי: מספרים חזקים ופוטנציאל הפרס")
@@ -234,4 +210,7 @@ if all_records:
             st.success(f"טבלה {i} (משולבת אסטרטגיות): \n\n {', '.join(map(str, table))}  |  חזק: {selected_strong}")
         st.balloons()
 else:
-    st.error("קובץ הנתונים 'lotto2026.csv' לא נמצא.")
+    st.error("קובץ הנתונים לא נטען בצורה תקינה. ודא שהוא בפורמט CSV סטנדרטי.")
+    if columns_found:
+        st.write("שגיאה טכנית שנתקלה בה:")
+        st.code(columns_found[0])
