@@ -3,9 +3,10 @@ import pandas as pd
 from collections import Counter
 import random
 import os
+import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - גרסה סופית ויציבה", layout="centered")
+st.set_page_config(page_title="לוטו חכם - קורא אוניברסלי", layout="centered")
 
 st.markdown("""
     <style>
@@ -16,7 +17,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-def load_mifal_hapais_file():
+def load_any_lotto_file():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     possible_names = ['lotto2026.csv', 'Lotto2026.csv', 'lotto2026.CSV', 'Lotto2026.CSV']
     file_path = None
@@ -36,70 +37,67 @@ def load_mifal_hapais_file():
     if file_path is None:
         return None
 
-    df = None
-    for enc in ['windows-1255', 'utf-8', 'utf-8-sig', 'ansi']:
+    content = ""
+    # ניסיון קריאה ישיר של הטקסט עם כל הקידודים האפשריים
+    for enc in ['utf-8-sig', 'windows-1255', 'utf-8', 'ansi', 'iso-8859-8']:
         try:
-            df = pd.read_csv(file_path, encoding=enc, sep=None, engine='python')
-            break
+            with open(file_path, 'r', encoding=enc, errors='ignore') as f:
+                content = f.read()
+            if content.strip() and len(content) > 50:
+                break
         except:
             continue
             
-    if df is None:
+    if not content or not content.strip():
         return None
         
     records = []
+    lines = content.split('\n')
     
-    try:
-        # ניקוי כותרות
-        df.columns = df.columns.str.strip()
-        numeric_df = df.apply(pd.to_numeric, errors='coerce')
-        
-        # איתור עמודות רלוונטיות
-        valid_cols = []
-        for col in df.columns:
-            cleaned_series = numeric_df[col].dropna()
-            if not cleaned_series.empty and cleaned_series.between(1, 37).all():
-                valid_cols.append(col)
-                
-        if len(valid_cols) >= 7:
-            strong_col = None
-            for col in valid_cols:
-                if 'חזק' in str(col) or 'strong' in str(col).lower():
-                    strong_col = col
-                    break
-                    
-            if not strong_col:
-                for col in valid_cols:
-                    if numeric_df[col].dropna().between(1, 7).all():
-                        strong_col = col
-                        break
+    for line in lines:
+        if not line.strip():
+            continue
             
-            if not strong_col:
-                strong_col = valid_cols[-1]
-                
-            num_cols = [c for c in valid_cols if c != strong_col][:6]
+        # חילוץ כל המספרים מתוך השורה הנוכחית
+        tokens = re.findall(r'\b\d+\b', line)
+        if not tokens:
+            continue
             
-            for _, row in df.iterrows():
-                try:
-                    vals = [int(row[c]) for c in num_cols if pd.notna(row[c])]
-                    st_val = int(row[strong_col]) if pd.notna(row[strong_col]) else None
-                    if len(vals) == 6 and st_val is not None:
-                        records.append({
-                            'מספרים': vals,
-                            'חזק': st_val,
-                            'פרס_גדול': True
-                        })
-                except:
-                    continue
-    except:
-        pass
+        ints = [int(t) for t in tokens]
         
+        # סינון מספרים שמתאימים ללוטו (בין 1 ל-37)
+        # אנחנו מחפשים שורות שמכילות לפחות 7 מספרים בטווח הזה (6 רגילים + 1 חזק)
+        valid_lotto_nums = [n for n in ints if 1 <= n <= 37]
+        
+        # מניעת רעש של מספרי הגרלות גדולים (כמו הגרלה מספר 3450) או שנים (2025, 2026)
+        # קובץ מפעל הפיס הרשמי מכיל בשורה לרוב את מספר ההגרלה, התאריך, 6 מספרים והמספר החזק
+        if len(valid_lotto_nums) >= 7:
+            # לפי המבנה הטיפוסי של מפעל הפיס:
+            # אם יש תאריך ומספר הגרלה בהתחלה, 6 המספרים והחזק נמצאים בהמשך השורה.
+            # נבדוק אם יש מספר בטווח 1-7 בסוף השורה או קרוב אליה שמתאים להיות החזק.
+            strong_candidate = valid_lotto_nums[-1]
+            if 1 <= strong_candidate <= 7:
+                strong_val = strong_candidate
+                # 6 המספרים שלפניו הם סדרת הגורל
+                lotto_series = valid_lotto_nums[-7:-1]
+            else:
+                # ניסיון הפוך אם החזק מופיע בתחילת הרצף המספרי
+                strong_val = valid_lotto_nums[0]
+                lotto_series = valid_lotto_nums[1:7]
+                
+            if len(lotto_series) == 6 and 1 <= strong_val <= 7:
+                records.append({
+                    'מספרים': sorted(lotto_series),
+                    'חזק': strong_val,
+                    'פרס_גדול': True
+                })
+                
     return records
 
-# טעינת הנתונים האמיתיים
-all_historical_records = load_mifal_hapais_file()
+# טעינת הנתונים האמיתיים מהקובץ
+all_historical_records = load_any_lotto_file()
 
-# הגנת חירום למקרה שהקובץ ריק
+# הגנת חירום רק אם הקובץ פיזית ריק לחלוטין בגיטהאב
 if not all_historical_records:
     all_historical_records = []
     random.seed(42)
@@ -113,12 +111,14 @@ if not all_historical_records:
 else:
     is_simulation = False
 
-# היפוך כרונולוגי של קובץ האמת (מהישן לחדש)
+# אם מדובר בקובץ אמת, מפעל הפיס מסדר מהחדש לישן. 
+# נחתוך קודם את 104 ההגרלות האחרונות ביותר (העליונות ביותר בקובץ - השנה האחרונה)
 if not is_simulation:
-    all_historical_records.reverse()
-
-# חיתוך 104 ההגרלות האחרונות (שנה אחורה)
-records_year = all_historical_records[-104:] if len(all_historical_records) >= 104 else all_historical_records
+    records_year = all_historical_records[:104]
+    # כעת נהפוך את 104 ההגרלות האלו כדי שהסדר יהיה מהישן לחדש לצורך חיזוי "מה מגיע אחרי מה"
+    records_year.reverse()
+else:
+    records_year = all_historical_records
 
 all_numbers = []
 all_strong = []
@@ -140,7 +140,7 @@ st.title("🎰 לוטו חכם: מנוע אנליזה")
 if is_simulation:
     st.warning("⚠️ המערכת קוראת את הקובץ בגיטהאב אך מבנהו לא זוהה. מציג נתוני סימולציה זמניים.")
 else:
-    st.success(f"✔️ החיבור הצליח! מנתח {len(records_year)} הגרלות אמת מהקובץ הרשמי.")
+    st.success(f"✔️ החיבור הצליח! מנתח {len(records_year)} הגרלות אמת מתוך קובץ מפעל הפיס שלך.")
 
 # === חלק 1: ניתוח פיננסי ===
 st.subheader("💰 ניתוח פיננסי: מספרים חזקים")
