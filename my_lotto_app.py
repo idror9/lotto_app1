@@ -2,9 +2,10 @@ import streamlit as st
 import pandas as pd
 from collections import Counter
 import random
+import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - גרסה יציבה", layout="centered")
+st.set_page_config(page_title="לוטו חכם - תיקון חזק", layout="centered")
 
 st.markdown("""
     <style>
@@ -24,29 +25,50 @@ def parse_lotto_file(file_path):
         i = 0
         while i < len(lines):
             line = lines[i]
-            if "תאריך הגרלה:" in line or "תאריך:" in line:
-                if current_record and 'תאריך' in current_record and 'מספרים' in current_record:
+            
+            # זיהוי תחילת הגרלה
+            if "תאריך" in line:
+                if current_record and 'מספרים' in current_record and 'חזק' in current_record:
                     records.append(current_record)
-                current_record = {'תאריך': lines[i+1] if i+1 < len(lines) else "", 'פרס_גדול': False}
+                current_record = {'פרס_גדול': False}
                 i += 1
-            elif "המספר החזק:" in line:
-                try: current_record['חזק'] = int(lines[i+1])
-                except: pass
+                continue
+                
+            # חילוץ המספר החזק - סריקה גמישה וחכמה של השורה או השורה הבאה
+            if "חזק" in line:
+                # בדיקה אם המספר נמצא באותה השורה (למשל: המספר החזק: 6)
+                digits = re.findall(r'\b[1-7]\b', line)
+                if digits:
+                    current_record['חזק'] = int(digits[0])
+                elif i + 1 < len(lines):
+                    # בדיקה אם המספר נמצא שורה מתחת
+                    next_line = lines[i+1].strip()
+                    if next_line.isdigit() and 1 <= int(next_line) <= 7:
+                        current_record['חזק'] = int(next_line)
                 i += 1
-            elif "המספרים שעלו בגורל:" in line or "מספרים:" in line:
+                continue
+                
+            # חילוץ 6 המספרים הרגילים
+            if "מספרים" in line or "גורל" in line:
                 start = i + 1
                 if start < len(lines) and lines[start] == "": start += 1
                 nums = []
                 for j in range(6):
                     if start + j < len(lines):
-                        try: nums.append(int(lines[start+j]))
-                        except: pass
-                current_record['מספרים'] = nums
+                        val = lines[start+j].strip()
+                        if val.isdigit():
+                            nums.append(int(val))
+                if len(nums) == 6:
+                    current_record['מספרים'] = nums
                 i = start + 5
-            elif "זכיות" in line or "פרס" in line or "סך הכל" in line:
+                continue
+                
+            if "זכיות" in line or "פרס" in line or "סך הכל" in line:
                 current_record['פרס_גדול'] = True
+                
             i += 1
-        if current_record and 'תאריך' in current_record and 'מספרים' in current_record:
+            
+        if current_record and 'מספרים' in current_record and 'חजק' in current_record:
             records.append(current_record)
         return records
     except:
@@ -56,10 +78,10 @@ def parse_lotto_file(file_path):
 all_records = parse_lotto_file('lotto2026.csv')
 
 if all_records:
-    # הפיכת כל הרשימה לסדר כרונולוגי ישר (מהישן ביותר לחדש ביותר)
+    # סידור ההיסטוריה מהישן ביותר לחדש ביותר
     all_records.reverse()
     
-    # חיתוך מדויק של 104 ההגרלות האחרונות ביותר (שנה אחורה)
+    # חיתוך מדויק של 104 ההגרלות האחרונות ביותר (365 ימים אחורה)
     records_year = all_records[-104:] if len(all_records) >= 104 else all_records
     
     # חילוץ מאגרים לשנה האחרונה
@@ -77,7 +99,7 @@ if all_records:
     cold_numbers = [n for n in range(1, 38) if n not in top_20_pool][:7]
     
     st.title("🎰 לוטו חכם: ניתוח 365 ימים אחרונים")
-    st.caption(f"מבוסס על {len(records_year)} ההגרלות האחרונות בקובץ בסדר כרונולוגי מדויק.")
+    st.caption(f"הנתונים מסונכרנים ומבוססים על {len(records_year)} ההגרלות האחרונות בקובץ.")
     
     # === חלק 1: ניתוח פיננסי ===
     st.subheader("💰 ניתוח פיננסי: מספרים חזקים ופוטנציאל הפרס")
@@ -93,7 +115,7 @@ if all_records:
         
         financial_data.append({
             "מספר חזק": f"מספר {strong_num}",
-            "זכיות משמעותיות בשנה האחרונה": f"{big_wins} הגרלות",
+            "הופעות בשנה האחרונה": f"{total_draws_for_num} פעמים",
             "מדד עוצמה כספית": f"{final_power:.1f}%",
             "סדר_מיון": final_power
         })
