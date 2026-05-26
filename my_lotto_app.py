@@ -4,7 +4,7 @@ from collections import Counter
 import random
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - 104 הגרלות", layout="centered")
+st.set_page_config(page_title="לוטו חכם - תיקון שנה אחורה", layout="centered")
 
 st.markdown("""
     <style>
@@ -57,12 +57,11 @@ def parse_lotto_file(file_path):
 all_records = parse_lotto_file('lotto2026.csv')
 
 if all_records:
-    # הגרלות מסודרות מהחדשה ביותר לישנה ביותר בקובץ
-    # חיתוך מדויק של 104 הגרלות אחרונות (שווה ערך ל-365 ימים של פעילות)
-    records_year = all_records[:104]
+    # שלב קריטי לתיקון: הפיכת כל ההיסטוריה לסדר כרונולוגי ישר (מהישן ביותר לחדש ביותר)
+    all_records.reverse()
     
-    # הפיכת הרשימה לסדר כרונולוגי (מהישן לחדש) לצורך ניתוח רצפים
-    records_year.reverse()
+    # חיתוך מדויק של 104 ההגרלות האחרונות ביותר (שנה אחורה קלנדרית)
+    records_year = all_records[-104:] if len(all_records) >= 104 else all_records
     
     # חילוץ מאגרים לשנה האחרונה
     all_numbers = []
@@ -79,7 +78,7 @@ if all_records:
     cold_numbers = [n for n in range(1, 38) if n not in top_20_pool][:7]
     
     st.title("🎰 לוטו חכם: ניתוח 365 ימים אחרונים")
-    st.caption(f"הנתונים מבוססים על {len(records_year)} ההגרלות האחרונות בקובץ (חלון זמן של שנה מלאה).")
+    st.caption(f"הנתונים מבוססים על {len(records_year)} ההגרלות האחרונות בקובץ בסדר כרונולוגי תקין.")
     
     # === חלק 1: ניתוח פיננסי של המספרים החזקים (שנה אחורה) ===
     st.subheader("💰 ניתוח פיננסי: מספרים חזקים ופוטנציאל הפרס")
@@ -122,91 +121,4 @@ if all_records:
         st.write(f"**המלצת המכונה:** יחס אופטימלי של 3 זוגיים ו-3 אי זוגיים.")
         st.write(f"**אימות היסטורי בשנה זו:** דפוס זה הופיע ב-{even_pct:.1f}% מההגרלות האחרונות.")
 
-    with st.expander("⚡ סעיף 3: ניתוח פיזיקלי (סטיית מכונה וגלים)"):
-        recent_draws = records_year[-10:] if len(records_year) >= 10 else records_year
-        recent_numbers = []
-        for r in recent_draws: recent_numbers.extend(r['מספרים'])
-        recent_counts = Counter(recent_numbers)
-        wave_numbers = [n for n, c in recent_counts.most_common(3)]
-        st.write(f"**מספרים במומנטום חם (10 הגרלות אחרונות):** {', '.join(map(str, wave_numbers))}")
-
-    with st.expander("🎲 סעיף 4: סימולציית מונטה קרלו"):
-        st.write("**מנוע סימולציה מוגבל לשנה האחרונה:** מסנן החוצה צירופים חריגים על בסיס התנהגות המכונה ב-104 ההגרלות האחרונות בלבד.")
-
-    with st.expander("🎯 סעיף 5: תורת המשחקים (זכייה ללא שותפים)"):
-        st.write("**חלוקת טופס חכמה:** שילוב מבוקר של מספרים מעל 31 כדי למנוע הצטלבות עם תאריכי ימי הולדת של שחקנים אחרים.")
-
-    st.divider()
-
-    # === חלק 3: בדיקת סיכוי למספר החזק הבא ===
-    st.subheader("🔮 בדיקת סיכוי למספר החזק הבא")
-    chosen_strong = st.selectbox("בחר את המספר החזק שיצא בהגרלה האחרונה:", options=list(range(1, 8)), index=5)
-    
-    next_strong_list = []
-    for i in range(len(records_year) - 1):
-        if records_year[i].get('חזק') == chosen_strong:
-            next_draw = records_year[i+1]
-            if next_draw.get('חזק'): next_strong_list.append(next_draw['חזק'])
-                
-    total_cases = len(next_strong_list)
-    counts_after_chosen = Counter(next_strong_list)
-    
-    st.write(f"המספר **{chosen_strong}** יצא {total_cases} פעמים בחלון הזמן של השנה האחרונה.")
-    
-    if total_cases > 0:
-        st.write("📊 **ההסתברות למספר החזק הבא (ממוין מהסיכוי הגבוה לנמוך):**")
-        stats_data = []
-        for i in range(1, 8):
-            times = counts_after_chosen.get(i, 0)
-            chance = (times / total_cases) * 100
-            stats_data.append({
-                "המספר החזק הבא": f"מספר {i}",
-                "כמה פעמים יצא אחריו בשנה זו": f"{times} פעמים",
-                "אחוז סיכוי": f"{chance:.1f}%",
-                "סיכוי_עזר": chance
-            })
-        stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי_עזר", ascending=False).drop(columns=["סיכוי_עזר"])
-        st.dataframe(stats_df.set_index("המספר החזק הבא"), use_container_width=True)
-        
-    st.divider()
-    st.write("### הפקת טורים חכמים למילוי:")
-    
-    selected_strong = random.randint(1, 7)
-
-    # כפתור 1
-    if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 20 החמים)"):
-        current_hot_12 = random.sample(top_20_pool, 12)
-        st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-        st.write(f"12 המספרים שנבחרו להגרלה זו: {', '.join(map(str, sorted(current_hot_12)))}")
-        for i in range(1, 9):
-            nums = sorted(random.sample(current_hot_12, 6))
-            st.info(f"טבלה {i}: \n\n {', '.join(map(str, nums))}  |  חזק: {selected_strong}")
-        st.balloons()
-
-    # כפתור 2
-    if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (הפרשים קרובים)"):
-        current_hot_12 = random.sample(top_20_pool, 12)
-        st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-        st.write(f"12 המספרים שנבחרו לאסטרטגיית מרווחים: {', '.join(map(str, sorted(current_hot_12)))}")
-        for i in range(1, 9):
-            valid_table = False
-            attempts = 0
-            while not valid_table and attempts < 100:
-                table = random.sample(current_hot_12, 6)
-                table.sort()
-                
-                diffs = [table[j+1] - table[j] for j in range(5)]
-                cond_diff = any(d in [1, 2, 3] for d in diffs)
-                
-                evens = sum(1 for n in table if n % 2 == 0)
-                cond_balance = evens in [2, 3, 4]
-                
-                cond_high = any(n > 31 for n in table)
-                
-                if cond_diff and cond_balance and cond_high:
-                    valid_table = True
-                attempts += 1
-            st.success(f"טבלה {i} (משולבת אסטרטגיות): \n\n {', '.join(map(str, table))}  |  חזק: {selected_strong}")
-        st.balloons()
-else:
-    st.error("קובץ הנתונים 'lotto2026.csv' לא נמצא.")
+    with st.expander("⚡ סעיף 3: ניתוח
