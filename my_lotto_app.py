@@ -5,7 +5,7 @@ import random
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - מפעל הפיס הסופי", layout="centered")
+st.set_page_config(page_title="לוטו חכם - גרסת מספרים בלבד", layout="centered")
 
 st.markdown("""
     <style>
@@ -16,11 +16,10 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-def load_mifal_hapais_flexible(file_path):
-    encodings = ['utf-8', 'windows-1255', 'ansi', 'utf-8-sig']
+def load_pure_numeric_lotto(file_path):
+    # ניסיון לקרוא את הקובץ בכל קידוד אפשרי כדי שלא יקרוס
     content = None
-    
-    for enc in encodings:
+    for enc in ['utf-8', 'windows-1255', 'ansi', 'utf-8-sig']:
         try:
             with open(file_path, 'r', encoding=enc) as f:
                 content = f.read()
@@ -31,53 +30,61 @@ def load_mifal_hapais_flexible(file_path):
     if not content:
         return None
 
-    # פיצול השורות וניקוי שורות ריקות
-    lines = [line.strip() for line in content.split('\n') if line.strip()]
+    # פיצול לשורות
+    lines = content.split('\n')
     records = []
     
     for line in lines:
-        # חילוץ כל המספרים מהשורה המופרדים בפסיקים, נקודה-פסיק או טאבים
-        tokens = re.split(r'[,;\t]+', line)
-        nums_in_line = []
+        if not line.strip():
+            continue
+            
+        # חילוץ כל המספרים הקיימים בשורה ללא תלות באותיות או ג'יבריש
+        tokens = re.split(r'[,;\t\s]+', line)
+        all_ints = []
         for t in tokens:
-            clean_t = ''.join(filter(str.isdigit, t))
-            if clean_t:
-                nums_in_line.append(int(clean_t))
+            # מנקה הכל ומשאיר רק ספרות
+            clean = "".join(c for c in t if c.isdigit())
+            if clean:
+                all_ints.append(int(clean))
+                
+        # סינון המספרים שנמצאים בטווח של הלוטו (1 עד 37)
+        lotto_candidates = [n for n in all_ints if 1 <= n <= 37]
         
-        # בקובץ של מפעל הפיס, שורת הגרלה תקינה מכילה את מספר ההגרלה, תאריך, 6 מספרים ומספר חזק
-        # נחפש שורות שיש בהן מספיק מספרים בטווח של הלוטו
-        valid_lotto_nums = [n for n in nums_in_line if 1 <= n <= 37]
-        
-        if len(valid_lotto_nums) >= 7:
-            # במבנה הסטנדרטי של מפעל הפיס, 6 המספרים מופיעים קודם והמספר החזק מופיע בסוף השורה
-            # נחלץ את 6 המספרים הראשונים בטווח ואת החזק (שהוא בין 1 ל-7)
-            strong_candidates = [n for n in nums_in_line if 1 <= n <= 7]
-            if strong_candidates:
-                strong = strong_candidates[-1] # לוקחים את החזק שבסוף
-                # 6 המספרים הרגילים
-                regular_nums = [n for n in valid_lotto_nums if n != strong or valid_lotto_nums.count(n) > 1][:6]
-                if len(regular_nums) == 6:
-                    # סימולציית זכייה (אם השורה מכילה נתונים כספיים כמו סימן שקל או מספרים גדולים)
-                    has_prize = any(kw in line for kw in ["זכיות", "פרס", "₪"]) or any(n > 1000 for n in nums_in_line)
-                    records.append({
-                        'מספרים': regular_nums,
-                        'חזק': strong,
-                        'פרס_גדול': has_prize
-                    })
-                    
+        # בקובץ של מפעל הפיס, שורה תקינה תכיל רצף של מספרים.
+        # לעיתים יש מספר הגרלה בתחילת השורה (שיכול להיות קטן מ-37), לכן נחפש בין 7 ל-8 מספרים בטווח.
+        if len(lotto_candidates) >= 7:
+            # אם יש 8 מספרים, הראשון הוא כנראה מספר ההגרלה, אז נדלג עליו
+            if len(lotto_candidates) == 8:
+                lotto_candidates = lotto_candidates[1:]
+                
+            # במבנה הרשמי של מפעל הפיס: 6 המספרים מופיעים קודם, והאחרון ברצף הוא המספר החזק
+            regular_nums = lotto_candidates[:6]
+            strong_num = lotto_candidates[6]  # המספר השביעי ברצף
+            
+            # וידוא קל שהחזק בטווח התקין של 1-7
+            if 1 <= strong_num <= 7:
+                # סימולציית זכייה לפי קיום מספרים גדולים בשורה (סכומי פרסים)
+                has_prize = any(n > 1000 for n in all_ints)
+                
+                records.append({
+                    'מספרים': sorted(regular_nums),
+                    'חזק': strong_num,
+                    'פרס_גדול': has_prize
+                })
+                
     return records
 
-# טעינת הנתונים
-all_records = load_mifal_hapais_flexible('lotto2026.csv')
+# טעינת הנתונים מהמנגנון העיוור
+all_records = load_pure_numeric_lotto('lotto2026.csv')
 
 if all_records:
-    # לקיחת 104 ההגרלות האחרונות ביותר (שנה אחורה קלנדרית מהסוף של הקובץ)
+    # לקיחת 104 ההגרלות האחרונות ביותר (שנה אחורה מהסוף של הקובץ)
     records_year = all_records[:104]
     
-    # הפיכת הרשימה לסדר כרונולוגי ישר (מהישן לחדש) לצורך ניתוח רצפים
+    # הפיכת הרשימה לסדר כרונולוגי ישר (מהישן לחדש)
     records_year.reverse()
     
-    # חילוץ מאגרים
+    # חילוץ מאגרים לשנה האחרונה
     all_numbers = []
     all_strong = []
     for r in records_year:
@@ -91,7 +98,7 @@ if all_records:
     cold_numbers = [n for n in range(1, 38) if n not in top_20_pool][:7]
     
     st.title("🎰 לוטו חכם: ניתוח 365 ימים אחרונים")
-    st.caption(f"הנתונים מבוססים על {len(records_year)} ההגרלות האחרונות שפוענחו בהצלחה מהקובץ הרשמי.")
+    st.caption(f"פוענחו בהצלחה {len(records_year)} הגרלות מהשנה האחרונה (מנגנון חסין קידוד).")
     
     # === חלק 1: ניתוח פיננסי ===
     st.subheader("💰 ניתוח פיננסי: מספרים חזקים ופוטנציאל הפרס")
@@ -179,6 +186,8 @@ if all_records:
             })
         stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי_עזר", ascending=False).drop(columns=["סיכוי_עזר"])
         st.dataframe(stats_df.set_index("המספר החזק הבא"), use_container_width=True)
+    else:
+        st.info(f"לא נמצאו מספיק נתונים בשנה האחרונה על מספרים שעלו אחרי המספר {chosen_strong}.")
         
     st.divider()
     st.write("### הפקת טורים חכמים למילוי:")
@@ -215,4 +224,4 @@ if all_records:
             st.success(f"טבלה {i}: {', '.join(map(str, table))} | חזק: {selected_strong}")
         st.balloons()
 else:
-    st.error("קובץ הנתונים 'lotto2026.csv' נמצא אך מבנה השורות הפנימי שלו חסר נתוני הגרלה תקינים.")
+    st.error("קובץ הנתונים 'lotto2026.csv' נמצא אך המנגנון הטהור לא מצא בו שורות מספרים תקינות.")
