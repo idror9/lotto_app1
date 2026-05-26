@@ -5,7 +5,7 @@ import random
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - תיקון חזק", layout="centered")
+st.set_page_config(page_title="לוטו חכם - גרסה סופית ומדויקת", layout="centered")
 
 st.markdown("""
     <style>
@@ -19,57 +19,60 @@ st.markdown("""
 def parse_lotto_file(file_path):
     try:
         with open(file_path, 'r', encoding='utf8') as f:
-            lines = [line.strip() for line in f.readlines()]
+            content = f.read()
+            
+        # פיצול הקובץ לפי בלוקים של הגרלות (כל פעם שמופיעה המילה תאריך)
+        chunks = re.split(r'(?=תאריך)', content)
         records = []
-        current_record = {}
-        i = 0
-        while i < len(lines):
-            line = lines[i]
+        
+        for chunk in chunks:
+            lines = [ln.strip() for ln in chunk.split('\n') if ln.strip()]
+            if not lines:
+                continue
+                
+            record = {'מספרים': [], 'חזק': None, 'פרס_גדול': False}
             
-            # זיהוי תחילת הגרלה
-            if "תאריך" in line:
-                if current_record and 'מספרים' in current_record and 'חזק' in current_record:
-                    records.append(current_record)
-                current_record = {'פרס_גדול': False}
-                i += 1
-                continue
+            # בדיקה אם יש זכיות בבלוק הנוכחי
+            if any("זכיות" in ln or "פרס" in ln or "סך הכל" in ln for ln in lines):
+                record['פרס_גדול'] = True
                 
-            # חילוץ המספר החזק - סריקה גמישה וחכמה של השורה או השורה הבאה
-            if "חזק" in line:
-                # בדיקה אם המספר נמצא באותה השורה (למשל: המספר החזק: 6)
-                digits = re.findall(r'\b[1-7]\b', line)
-                if digits:
-                    current_record['חזק'] = int(digits[0])
-                elif i + 1 < len(lines):
-                    # בדיקה אם המספר נמצא שורה מתחת
-                    next_line = lines[i+1].strip()
-                    if next_line.isdigit() and 1 <= int(next_line) <= 7:
-                        current_record['חזק'] = int(next_line)
-                i += 1
-                continue
-                
-            # חילוץ 6 המספרים הרגילים
-            if "מספרים" in line or "גורל" in line:
-                start = i + 1
-                if start < len(lines) and lines[start] == "": start += 1
-                nums = []
-                for j in range(6):
-                    if start + j < len(lines):
-                        val = lines[start+j].strip()
-                        if val.isdigit():
-                            nums.append(int(val))
-                if len(nums) == 6:
-                    current_record['מספרים'] = nums
-                i = start + 5
-                continue
-                
-            if "זכיות" in line or "פרס" in line or "סך הכל" in line:
-                current_record['פרס_גדול'] = True
-                
-            i += 1
+            # חילוץ כל המספרים הבודדים שמופיעים בבלוק הזה
+            all_numbers_in_chunk = []
+            for line in lines:
+                # מוצא את כל המספרים בשורה
+                found = re.findall(r'\b\d+\b', line)
+                for num_str in found:
+                    val = int(num_str)
+                    # סינון מספרים שאינם קשורים (שנים, ימים, כמויות זוכים גדולות)
+                    if val <= 37:
+                        all_numbers_in_chunk.append(val)
             
-        if current_record and 'מספרים' in current_record and 'חजק' in current_record:
-            records.append(current_record)
+            # חילוץ 6 המספרים הרגילים והמספר החזק מתוך רצף המספרים שזוהו
+            # בדרך כלל בקובץ, 6 המספרים מופיעים ברצף, והמספר החזק מופיע בנפרד או בסוף
+            # נחפש ספציפית את השורה של המספר החזק כדי לדייק
+            for line in lines:
+                if "חזק" in line:
+                    strong_digits = re.findall(r'\b[1-7]\b', line)
+                    if strong_strong_digits := [int(d) for d in strong_digits if 1 <= int(d) <= 7]:
+                        record['חזק'] = strong_strong_digits[0]
+            
+            # חילוץ 6 המספרים הרגילים (המספרים שנמצאים בטווח 1-37 ואינם החזק)
+            regular_candidates = [n for n in all_numbers_in_chunk if 1 <= n <= 37 and n != record['חזק']]
+            
+            # אם לא מצאנו חזק מקודם, ניקח את המספר האחרון ברשימה שעונה לתנאי 1-7
+            if record['חזק'] is None:
+                possible_strong = [n for n in all_numbers_in_chunk if 1 <= n <= 7]
+                if possible_strong:
+                    record['חזק'] = possible_strong[-1]
+                    regular_candidates = [n for n in all_numbers_in_chunk if 1 <= n <= 37 and n != record['חזק']]
+            
+            # לוקחים את 6 המספרים הראשונים שמתאימים
+            if len(regular_candidates) >= 6:
+                record['מספרים'] = regular_candidates[:6]
+                
+            if record['מספרים'] and record['חזק']:
+                records.append(record)
+                
         return records
     except:
         return None
@@ -78,18 +81,18 @@ def parse_lotto_file(file_path):
 all_records = parse_lotto_file('lotto2026.csv')
 
 if all_records:
-    # סידור ההיסטוריה מהישן ביותר לחדש ביותר
-    all_records.reverse()
+    # חיתוך מדויק של 104 ההגרלות האחרונות ביותר מתוך הקובץ (שנה אחורה קלנדרית)
+    records_year = all_records[:104]
     
-    # חיתוך מדויק של 104 ההגרלות האחרונות ביותר (365 ימים אחורה)
-    records_year = all_records[-104:] if len(all_records) >= 104 else all_records
+    # הפיכת הרשימה לסדר כרונולוגי ישר (מהישן לחדש) לצורך ניתוח מה בא אחרי מה
+    records_year.reverse()
     
     # חילוץ מאגרים לשנה האחרונה
     all_numbers = []
     all_strong = []
     for r in records_year:
-        if 'מספרים' in r: all_numbers.extend(r['מספרים'])
-        if 'חזק' in r: all_strong.append(r['חזק'])
+        all_numbers.extend(r['מספרים'])
+        all_strong.append(r['חזק'])
             
     counts = Counter(all_numbers)
     strong_counts = Counter(all_strong)
@@ -99,7 +102,7 @@ if all_records:
     cold_numbers = [n for n in range(1, 38) if n not in top_20_pool][:7]
     
     st.title("🎰 לוטו חכם: ניתוח 365 ימים אחרונים")
-    st.caption(f"הנתונים מסונכרנים ומבוססים על {len(records_year)} ההגרלות האחרונות בקובץ.")
+    st.caption(f"הנתונים מבוססים על {len(records_year)} ההגרלות האחרונות שנקראו בהצלחה מהקובץ.")
     
     # === חלק 1: ניתוח פיננסי ===
     st.subheader("💰 ניתוח פיננסי: מספרים חזקים ופוטנציאל הפרס")
