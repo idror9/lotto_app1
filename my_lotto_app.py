@@ -2,10 +2,9 @@ import streamlit as st
 import pandas as pd
 from collections import Counter
 import random
-from datetime import datetime, timedelta
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - שנה אחורה", layout="centered")
+st.set_page_config(page_title="לוטו חכם - 104 הגרלות", layout="centered")
 
 st.markdown("""
     <style>
@@ -29,17 +28,7 @@ def parse_lotto_file(file_path):
             if "תאריך הגרלה:" in line or "תאריך:" in line:
                 if current_record and 'תאריך' in current_record and 'מספרים' in current_record:
                     records.append(current_record)
-                
-                raw_date = lines[i+1].strip() if i+1 < len(lines) else ""
-                current_record = {'תאריך_טקסט': raw_date, 'פרס_גדול': False, 'תאריך_אובייקט': None}
-                
-                # ניסיון להפוך את הטקסט לתאריך אמיתי לצורך סינון חלון הזמן
-                for fmt in ('%d/%m/%Y', '%d.%m.%Y', '%Y-%m-%d'):
-                    try:
-                        current_record['תאריך_אובייקט'] = datetime.strptime(raw_date, fmt)
-                        break
-                    except:
-                        pass
+                current_record = {'תאריך': lines[i+1] if i+1 < len(lines) else "", 'פרס_גדול': False}
                 i += 1
             elif "המספר החזק:" in line:
                 try: current_record['חזק'] = int(lines[i+1])
@@ -55,35 +44,30 @@ def parse_lotto_file(file_path):
                         except: pass
                 current_record['מספרים'] = nums
                 i = start + 5
-            elif "סך הכל זכיות בהגרלה:" in line or "זכיות" in line:
+            elif "סך הכל זכיות בהגרלה:" in line or "זכיות" in line or "פרס" in line:
                 current_record['פרס_גדול'] = True
             i += 1
-        if current_record and 'תאריך_טקסט' in current_record and 'מספרים' in current_record:
+        if current_record and 'תאריך' in current_record and 'מספרים' in current_record:
             records.append(current_record)
         return records
     except:
         return None
 
 # טעינת הנתונים
-all_historical_records = parse_lotto_file('lotto2026.csv')
+all_records = parse_lotto_file('lotto2026.csv')
 
-if all_historical_records:
-    # פילטר קשוח: לוקחים רק הגרלות מה-365 ימים האחרונים
-    one_year_ago = datetime.now() - timedelta(days=365)
+if all_records:
+    # הגרלות מסודרות מהחדשה ביותר לישנה ביותר בקובץ
+    # חיתוך מדויק של 104 הגרלות אחרונות (שווה ערך ל-365 ימים של פעילות)
+    records_year = all_records[:104]
     
-    # סינון הרשימה (אם תאריך מסוים לא פוענח, נשמור אותו ליתר ביטחון כדי לא לאבד מידע)
-    records = [
-        r for r in all_historical_records 
-        if r['תאריך_אובייקט'] is None or r['תאריך_אובייקט'] >= one_year_ago
-    ]
-    
-    # סידור כרונולוגי מהישן לחדש בתוך השנה הזו
-    records.reverse() 
+    # הפיכת הרשימה לסדר כרונולוגי (מהישן לחדש) לצורך ניתוח רצפים
+    records_year.reverse()
     
     # חילוץ מאגרים לשנה האחרונה
     all_numbers = []
     all_strong = []
-    for r in records:
+    for r in records_year:
         if 'מספרים' in r: all_numbers.extend(r['מספרים'])
         if 'חזק' in r: all_strong.append(r['חזק'])
             
@@ -94,20 +78,20 @@ if all_historical_records:
     top_20_pool = [n for n, c in counts.most_common(20)]
     cold_numbers = [n for n in range(1, 38) if n not in top_20_pool][:7]
     
-    st.title("🎰 לוטו חכם: חלון זמן שנתנאל הגדיר (שנה אחורה)")
-    st.caption(f"הנתונים במסך זה מבוססים אך ורק על {len(records)} ההגרלות שהתרחשו ב-12 החודשים האחרונים.")
+    st.title("🎰 לוטו חכם: ניתוח 365 ימים אחרונים")
+    st.caption(f"הנתונים מבוססים על {len(records_year)} ההגרלות האחרונות בקובץ (חלון זמן של שנה מלאה).")
     
     # === חלק 1: ניתוח פיננסי של המספרים החזקים (שנה אחורה) ===
     st.subheader("💰 ניתוח פיננסי: מספרים חזקים ופוטנציאל הפרס")
     
     financial_data = []
     for strong_num in range(1, 8):
-        matching_draws = [r for r in records if r.get('חזק') == strong_num]
+        matching_draws = [r for r in records_year if r.get('חזק') == strong_num]
         total_draws_for_num = len(matching_draws)
         big_wins = sum(1 for r in matching_draws if r.get('פרס_גדול', False))
         
         raw_power = (big_wins / total_draws_for_num * 100) if total_draws_for_num > 0 else 0
-        final_power = (raw_power * 0.7) + ((strong_counts.get(strong_num, 0) / len(records) * 100) * 0.3) if records else 0
+        final_power = (raw_power * 0.7) + ((strong_counts.get(strong_num, 0) / len(records_year) * 100) * 0.3) if records_year else 0
         
         financial_data.append({
             "מספר חזק": f"מספר {strong_num}",
@@ -129,17 +113,17 @@ if all_historical_records:
         st.write(f"**המספרים הקרים ביותר בשנה האחרונה:** {', '.join(map(str, cold_numbers))}")
         st.write(f"**המספר החזק הכי שכיח בשנה האחרונה:** מספר {strong_counts.most_common(1)[0][0] if strong_counts else 'אין'}")
 
-    with st.expander("📈 סעיף 2: אסטרטגיית mרווחים ואיזון"):
+    with st.expander("📈 סעיף 2: אסטרטגיית מרווחים ואיזון"):
         even_half = 0
-        for r in records:
+        for r in records_year:
             evens = sum(1 for n in r['מספרים'] if n % 2 == 0)
             if evens == 3: even_half += 1
-        even_pct = (even_half / len(records)) * 100 if records else 0
+        even_pct = (even_half / len(records_year)) * 100 if records_year else 0
         st.write(f"**המלצת המכונה:** יחס אופטימלי של 3 זוגיים ו-3 אי זוגיים.")
         st.write(f"**אימות היסטורי בשנה זו:** דפוס זה הופיע ב-{even_pct:.1f}% מההגרלות האחרונות.")
 
     with st.expander("⚡ סעיף 3: ניתוח פיזיקלי (סטיית מכונה וגלים)"):
-        recent_draws = records[-10:] if len(records) >= 10 else records
+        recent_draws = records_year[-10:] if len(records_year) >= 10 else records_year
         recent_numbers = []
         for r in recent_draws: recent_numbers.extend(r['מספרים'])
         recent_counts = Counter(recent_numbers)
@@ -147,7 +131,7 @@ if all_historical_records:
         st.write(f"**מספרים במומנטום חם (10 הגרלות אחרונות):** {', '.join(map(str, wave_numbers))}")
 
     with st.expander("🎲 סעיף 4: סימולציית מונטה קרלו"):
-        st.write("**מנוע סימולציה מוגבל לשנה האחרונה:** מסנן החוצה צירופים חריגים על בסיס התנהגות המכונה ב-12 החודשים האחרונים בלבד.")
+        st.write("**מנוע סימולציה מוגבל לשנה האחרונה:** מסנן החוצה צירופים חריגים על בסיס התנהגות המכונה ב-104 ההגרלות האחרונות בלבד.")
 
     with st.expander("🎯 סעיף 5: תורת המשחקים (זכייה ללא שותפים)"):
         st.write("**חלוקת טופס חכמה:** שילוב מבוקר של מספרים מעל 31 כדי למנוע הצטלבות עם תאריכי ימי הולדת של שחקנים אחרים.")
@@ -159,9 +143,9 @@ if all_historical_records:
     chosen_strong = st.selectbox("בחר את המספר החזק שיצא בהגרלה האחרונה:", options=list(range(1, 8)), index=5)
     
     next_strong_list = []
-    for i in range(len(records) - 1):
-        if records[i].get('חזק') == chosen_strong:
-            next_draw = records[i+1]
+    for i in range(len(records_year) - 1):
+        if records_year[i].get('חזק') == chosen_strong:
+            next_draw = records_year[i+1]
             if next_draw.get('חזק'): next_strong_list.append(next_draw['חזק'])
                 
     total_cases = len(next_strong_list)
