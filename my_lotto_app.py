@@ -6,7 +6,7 @@ import re
 import os
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - נתיב מוחלט", layout="centered")
+st.set_page_config(page_title="לוטו חכם - תיקון אותיות", layout="centered")
 
 st.markdown("""
     <style>
@@ -17,19 +17,30 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-def parse_strict_lotto_file(file_name):
-    # חישוב נתיב מוחלט לקובץ בשרת כדי למנוע בעיות של תיקיית עבודה
+def parse_strict_lotto_file():
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(current_dir, file_name)
     
-    # בדיקה שנייה במידה והקובץ נמצא בתיקייה אחת למעלה
-    if not os.path.exists(file_path):
-        file_path = file_name
-        if not os.path.exists(file_path):
-            return None
+    # בדיקת שתי האפשרויות למניעת רגישות לאותיות גדולות/קטנות בלינוקס
+    possible_names = ['lotto2026.csv', 'Lotto2026.csv', 'lotto2026.CSV', 'Lotto2026.CSV']
+    file_path = None
+    
+    for name in possible_names:
+        test_path = os.path.join(current_dir, name)
+        if os.path.exists(test_path):
+            file_path = test_path
+            break
+            
+    # גיבוי במידה והקובץ נמצא בתיקיית העבודה הנוכחית בנתיב יחסי
+    if file_path is None:
+        for name in possible_names:
+            if os.path.exists(name):
+                file_path = name
+                break
+                
+    if file_path is None:
+        return None
 
     content = ""
-    # ניסיון קריאה עם תמיכה ב-UTF-8 כולל תווים נסתרים של אקסל (utf-8-sig)
     for encoding_type in ['utf-8-sig', 'utf-8', 'windows-1255', 'ansi']:
         try:
             with open(file_path, 'r', encoding=encoding_type, errors='ignore') as f:
@@ -83,8 +94,8 @@ def parse_strict_lotto_file(file_name):
             
     return records
 
-# טעינת הנתונים האמיתיים מהקובץ באמצעות הנתיב המוחלט
-all_historical_records = parse_strict_lotto_file('lotto2026.csv')
+# טעינת הנתונים האמיתיים מהקובץ
+all_historical_records = parse_strict_lotto_file()
 
 if all_historical_records:
     # היסטוריית מפעל הפיס מגיעה מהחדש לישן, נהפוך אותה לסדר כרונולוגי ישר
@@ -174,7 +185,7 @@ if all_historical_records:
         if records_year[i].get('חזק') == chosen_strong:
             next_draw = records_year[i+1]
             if next_draw.get('חזק'): 
-                next_strong_list.append(next_draw['חजק'])
+                next_strong_list.append(next_draw['חזק'])
                 
     total_cases = len(next_strong_list)
     counts_after_chosen = Counter(next_strong_list)
@@ -239,4 +250,4 @@ if all_historical_records:
             st.success(f"טבלה {i} (משולבת אסטרטגיות): \n\n {', '.join(map(str, table))} | חזק: {selected_strong}")
         st.balloons()
 else:
-    st.error("קובץ הנתונים 'lotto2026.csv' לא נמצא או שהוא ריק לחלוטין בתוך ה-GitHub שלך. ודא שהעלית קובץ מלא ומעודכן.")
+    st.error("קובץ הנתונים לא נמצא ב-GitHub. ודא שקיים קובץ בשם lotto2026.csv או Lotto2026.csv בתיקייה הראשית.")
