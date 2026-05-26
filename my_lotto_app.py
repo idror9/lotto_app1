@@ -3,9 +3,10 @@ import pandas as pd
 from collections import Counter
 import random
 import re
+import os
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - היסטוריה אמיתית", layout="centered")
+st.set_page_config(page_title="לוטו חכם - נתיב מוחלט", layout="centered")
 
 st.markdown("""
     <style>
@@ -16,20 +17,30 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-def parse_strict_lotto_file(file_path):
-    try:
-        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            content = f.read()
-    except:
-        return None
-        
-    # אם הקובץ ריק, ננסה לקרוא עם קידוד ישראלי נפוץ
-    if not content.strip():
-        try:
-            with open(file_path, 'r', encoding='windows-1255', errors='ignore') as f:
-                content = f.read()
-        except:
+def parse_strict_lotto_file(file_name):
+    # חישוב נתיב מוחלט לקובץ בשרת כדי למנוע בעיות של תיקיית עבודה
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(current_dir, file_name)
+    
+    # בדיקה שנייה במידה והקובץ נמצא בתיקייה אחת למעלה
+    if not os.path.exists(file_path):
+        file_path = file_name
+        if not os.path.exists(file_path):
             return None
+
+    content = ""
+    # ניסיון קריאה עם תמיכה ב-UTF-8 כולל תווים נסתרים של אקסל (utf-8-sig)
+    for encoding_type in ['utf-8-sig', 'utf-8', 'windows-1255', 'ansi']:
+        try:
+            with open(file_path, 'r', encoding=encoding_type, errors='ignore') as f:
+                content = f.read()
+            if content.strip():
+                break
+        except:
+            continue
+            
+    if not content or not content.strip():
+        return None
 
     # פיצול לפי בלוקים של הגרלות
     blocks = re.split(r'(?=תאריך|הגרלה)', content)
@@ -43,9 +54,8 @@ def parse_strict_lotto_file(file_path):
         record = {'מספרים': [], 'חזק': None, 'פרס_גדול': False}
         all_ints = []
         
-        # איסוף כל המספרים מהבלוק
         for line in lines:
-            if "זכיות" in line or "פרס" in line or "סך הכל" in line or "₪" in line:
+            if any(kw in line for kw in ["זכיות", "פרס", "סך הכל", "₪"]):
                 record['פרס_גדול'] = True
             
             found_p = re.findall(r'\b\d+\b', line)
@@ -59,7 +69,6 @@ def parse_strict_lotto_file(file_path):
                 if strong_digits:
                     record['חזק'] = int(strong_digits[0])
                     
-        # חילוץ 6 מספרים רגילים (שאינם החזק)
         regular_candidates = [n for n in all_ints if 1 <= n <= 37 and n != record['חזק']]
         
         if record['חזק'] is None:
@@ -74,17 +83,16 @@ def parse_strict_lotto_file(file_path):
             
     return records
 
-# טעינת הנתונים האמיתיים מהקובץ שלך
+# טעינת הנתונים האמיתיים מהקובץ באמצעות הנתיב המוחלט
 all_historical_records = parse_strict_lotto_file('lotto2026.csv')
 
 if all_historical_records:
-    # היסטוריית מפעל הפיס מגיעה מהחדש לישן, נהפוך אותה כדי שנוכל לבדוק רצפים כרונולוגיים קדימה בזמן
+    # היסטוריית מפעל הפיס מגיעה מהחדש לישן, נהפוך אותה לסדר כרונולוגי ישר
     all_historical_records.reverse()
     
     # חיתוך מדויק של 104 ההגרלות האחרונות ביותר בקובץ (שנה אחת מלאה אחורה)
     records_year = all_historical_records[-104:] if len(all_historical_records) >= 104 else all_historical_records
     
-    # חילוץ מאגרים מתוך השנה ההיסטורית האמיתית הזו
     all_numbers = []
     all_strong = []
     for r in records_year:
@@ -94,14 +102,13 @@ if all_historical_records:
     counts = Counter(all_numbers)
     strong_counts = Counter(all_strong)
     
-    # הפקת מאגר 20 המספרים הכי חמים מההיסטוריה האמיתית של השנה האחרונה
     top_20_pool = [n for n, c in counts.most_common(20)]
     cold_numbers = [n for n in range(1, 38) if n not in top_20_pool][:7]
     
     st.title("🎰 לוטו חכם: מנוע היסטוריה אמיתית")
-    st.caption(f"הניתוח מבוסס על {len(records_year)} ההגרלות האחרונות מתוך קובץ הנתונים lotto2026.csv שלך.")
+    st.caption(f"החיבור הצליח! האנליזה מבוססת על {len(records_year)} ההגרלות האחרונות מתוך הקובץ שלך.")
     
-    # === חלק 1: ניתוח פיננסי מהקובץ ===
+    # === חלק 1: ניתוח פיננסי ===
     st.subheader("💰 ניתוח פיננסי: מספרים חזקים ופוטנציאל הפרס")
     
     financial_data = []
@@ -125,7 +132,7 @@ if all_historical_records:
     
     st.divider()
     
-    # === חלק 2: לוח תחזיות מבוסס 5 הסעיפים מההיסטוריה ===
+    # === חלק 2: לוח תחזיות מבוסס 5 הסעיפים ===
     st.header("🔮 תמונת המצב והתחזית הטכנולוגית")
     
     with st.expander("📊 סעיף 1: ניתוח סטטיסטי (חמים מול קרים)"):
@@ -148,7 +155,7 @@ if all_historical_records:
         for r in recent_draws: recent_numbers.extend(r['מספרים'])
         recent_counts = Counter(recent_numbers)
         wave_numbers = [n for n, c in recent_counts.most_common(3)]
-        st.write(f"**מספרים במומנטום חם (10 הגרלות אחרונות מהקובץ):** {', '.join(map(str, wave_numbers))}")
+        st.write(f"**מספרים במומנטום חם (10 הגרלות אחרונות):** {', '.join(map(str, wave_numbers))}")
 
     with st.expander("🎲 סעיף 4: סימולציית מונטה קרלו"):
         st.write("**מנוע סימולציה מבוסס היסטוריה:** הטורים המיוצרים מותאמים לדפוסי המכונה האמיתיים מהשנה האחרונה.")
@@ -158,17 +165,16 @@ if all_historical_records:
 
     st.divider()
 
-    # === חלק 3: בדיקת סיכוי למספר החזק הבא מתוך ההיסטוריה האמיתית ===
+    # === חלק 3: בדיקת סיכוי למספר החזק הבא ===
     st.subheader("🔮 בדיקת סיכוי למספר החזק הבא")
     chosen_strong = st.selectbox("בחר את המספר החזק שיצא בהגרלה האחרונה:", options=list(range(1, 8)), index=5)
     
     next_strong_list = []
-    # סריקה כרונולוגית קדימה בזמן בתוך 104 ההגרלות ההיסטוריות
     for i in range(len(records_year) - 1):
         if records_year[i].get('חזק') == chosen_strong:
             next_draw = records_year[i+1]
             if next_draw.get('חזק'): 
-                next_strong_list.append(next_draw['חזק'])
+                next_strong_list.append(next_draw['חजק'])
                 
     total_cases = len(next_strong_list)
     counts_after_chosen = Counter(next_strong_list)
@@ -176,7 +182,7 @@ if all_historical_records:
     st.write(f"המספר **{chosen_strong}** יצא {total_cases} פעמים בהיסטוריה השנתית של הקובץ שלך.")
     
     if total_cases > 0:
-        st.write("📊 **ההסתברות למספר החזק הבא (ממוין מהסיכוי הגבוה לנמוך על בסיס נתוני אמת):**")
+        st.write("📊 **ההסתברות למספר החזק הבא (ממוין מהסיכוי הגבוה לנמוך):**")
         stats_data = []
         for i in range(1, 8):
             times = counts_after_chosen.get(i, 0)
@@ -190,15 +196,15 @@ if all_historical_records:
         stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי_עזר", ascending=False).drop(columns=["סיכוי_עזר"])
         st.dataframe(stats_df.set_index("המספר החזק הבא"), use_container_width=True)
     else:
-        st.info(f"לא נמצאו מספיק מקרים בהיסטוריה של השנה האחרונה שבהם מספר עלה מיד אחרי המספר {chosen_strong}.")
+        st.info(f"לא נמצאו מספיק מקרים בהיסטוריה שבהם מספר עלה מיד אחרי המספר {chosen_strong}.")
         
     st.divider()
-    st.write("### הפקת טורים חכמים (מבוססי היסטוריה אמיתית):")
+    st.write("### הפקת טורים חכמים:")
     
     selected_strong = random.randint(1, 7)
 
-    # כפתור 1: הגרלה מתוך 20 המספרים הכי חמים האמיתיים של הקובץ
-    if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 20 החמים של הקובץ)"):
+    # כפתור 1
+    if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 20 החמים)"):
         current_hot_12 = random.sample(top_20_pool, 12)
         st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
         st.write(f"12 המספרים האמיתיים שנבחרו להגרלה זו: {', '.join(map(str, sorted(current_hot_12)))}")
@@ -207,8 +213,8 @@ if all_historical_records:
             st.info(f"טבלה {i}: \n\n {', '.join(map(str, nums))} | חזק: {selected_strong}")
         st.balloons()
 
-    # כפתור 2: הפקה משולבת אסטרטגיות מתוך מאגר הנתונים ההיסטורי
-    if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (משולב נתוני אמת)"):
+    # כפתור 2
+    if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (הפרשים קרובים)"):
         current_hot_12 = random.sample(top_20_pool, 12)
         st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
         st.write(f"12 המספרים שנבחרו לאסטרטגיית מרווחים: {', '.join(map(str, sorted(current_hot_12)))}")
