@@ -2,10 +2,9 @@ import streamlit as st
 import pandas as pd
 from collections import Counter
 import random
-import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - גרסת מספרים בלבד", layout="centered")
+st.set_page_config(page_title="לוטו חכם - גרסה סופית בהחלט", layout="centered")
 
 st.markdown("""
     <style>
@@ -16,72 +15,65 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-def load_pure_numeric_lotto(file_path):
-    # ניסיון לקרוא את הקובץ בכל קידוד אפשרי כדי שלא יקרוס
-    content = None
+@st.cache_data
+def load_strict_mifal_hapais(file_path):
+    # ניסיון טעינה עם התעלמות משורות כותרת פגומות וקידודים
     for enc in ['utf-8', 'windows-1255', 'ansi', 'utf-8-sig']:
         try:
-            with open(file_path, 'r', encoding=enc) as f:
-                content = f.read()
-            break
+            # קריאה מבוססת מיקום עמודות (התעלמות משמות העמודות שעלולות להיות בג'יבריש)
+            df = pd.read_csv(file_path, encoding=enc, sep=None, engine='python', header=None, skiprows=1)
+            
+            # ניקוי שורות ריקות
+            df = df.dropna(how='all')
+            
+            records = []
+            for _, row in df.iterrows():
+                try:
+                    # המרה של השורה לרשימת ערכים נקיים
+                    row_values = [val for val in row.values if pd.notna(val)]
+                    
+                    # חילוץ כל המספרים שנמצאים בטווח של הלוטו (1 עד 37)
+                    valid_numbers = []
+                    for v in row_values:
+                        try:
+                            num = int(float(str(v).strip()))
+                            if 1 <= num <= 37:
+                                valid_numbers.append(num)
+                        except:
+                            continue
+                            
+                    # בקובץ מפעל הפיס יש לפחות 7 מספרים בכל שורת הגרלה תקינה
+                    if len(valid_numbers) >= 7:
+                        # אם יש מספר הגרלה בתחילת השורה והוא קטן מ-37, נסיר אותו כדי לא לבלבל
+                        if len(valid_numbers) == 8:
+                            valid_numbers = valid_numbers[1:]
+                            
+                        # 6 המספרים הראשונים הם מספר הגורל, והאחרון הוא המספר החזק
+                        regular_nums = valid_numbers[:6]
+                        strong_num = valid_numbers[6]
+                        
+                        if 1 <= strong_num <= 7:
+                            records.append({
+                                'מספרים': sorted(regular_nums),
+                                'חזק': strong_num,
+                                'פרס_גדול': len(row_values) > 10 # סימון זכיות לפי אורך שורה
+                            })
+                except:
+                    continue
+            if records:
+                return records
         except:
             continue
-            
-    if not content:
-        return None
+    return None
 
-    # פיצול לשורות
-    lines = content.split('\n')
-    records = []
-    
-    for line in lines:
-        if not line.strip():
-            continue
-            
-        # חילוץ כל המספרים הקיימים בשורה ללא תלות באותיות או ג'יבריש
-        tokens = re.split(r'[,;\t\s]+', line)
-        all_ints = []
-        for t in tokens:
-            # מנקה הכל ומשאיר רק ספרות
-            clean = "".join(c for c in t if c.isdigit())
-            if clean:
-                all_ints.append(int(clean))
-                
-        # סינון המספרים שנמצאים בטווח של הלוטו (1 עד 37)
-        lotto_candidates = [n for n in all_ints if 1 <= n <= 37]
-        
-        # בקובץ של מפעל הפיס, שורה תקינה תכיל רצף של מספרים.
-        # לעיתים יש מספר הגרלה בתחילת השורה (שיכול להיות קטן מ-37), לכן נחפש בין 7 ל-8 מספרים בטווח.
-        if len(lotto_candidates) >= 7:
-            # אם יש 8 מספרים, הראשון הוא כנראה מספר ההגרלה, אז נדלג עליו
-            if len(lotto_candidates) == 8:
-                lotto_candidates = lotto_candidates[1:]
-                
-            # במבנה הרשמי של מפעל הפיס: 6 המספרים מופיעים קודם, והאחרון ברצף הוא המספר החזק
-            regular_nums = lotto_candidates[:6]
-            strong_num = lotto_candidates[6]  # המספר השביעי ברצף
-            
-            # וידוא קל שהחזק בטווח התקין של 1-7
-            if 1 <= strong_num <= 7:
-                # סימולציית זכייה לפי קיום מספרים גדולים בשורה (סכומי פרסים)
-                has_prize = any(n > 1000 for n in all_ints)
-                
-                records.append({
-                    'מספרים': sorted(regular_nums),
-                    'חזק': strong_num,
-                    'פרס_גדול': has_prize
-                })
-                
-    return records
-
-# טעינת הנתונים מהמנגנון העיוור
-all_records = load_pure_numeric_lotto('lotto2026.csv')
+# טעינת הנתונים
+all_records = load_strict_mifal_hapais('lotto2026.csv')
 
 if all_records:
-    # לקיחת 104 ההגרלות האחרונות ביותר (שנה אחורה מהסוף של הקובץ)
+    # לקיחת 104 ההגרלות האחרונות ביותר (שנה אחורה קלנדרית)
     records_year = all_records[:104]
     
-    # הפיכת הרשימה לסדר כרונולוגי ישר (מהישן לחדש)
+    # הפיכת הרשימה לסדר כרונולוגי ישר (מהישן לחדש) לצורך ניתוח מה בא אחרי מה
     records_year.reverse()
     
     # חילוץ מאגרים לשנה האחרונה
@@ -98,7 +90,7 @@ if all_records:
     cold_numbers = [n for n in range(1, 38) if n not in top_20_pool][:7]
     
     st.title("🎰 לוטו חכם: ניתוח 365 ימים אחרונים")
-    st.caption(f"פוענחו בהצלחה {len(records_year)} הגרלות מהשנה האחרונה (מנגנון חסין קידוד).")
+    st.caption(f"פוענחו בהצלחה {len(records_year)} הגרלות מהשנה האחרונה מתוך קובץ מפעל הפיס.")
     
     # === חלק 1: ניתוח פיננסי ===
     st.subheader("💰 ניתוח פיננסי: מספרים חזקים ופוטנציאל הפרס")
@@ -224,4 +216,4 @@ if all_records:
             st.success(f"טבלה {i}: {', '.join(map(str, table))} | חזק: {selected_strong}")
         st.balloons()
 else:
-    st.error("קובץ הנתונים 'lotto2026.csv' נמצא אך המנגנון הטהור לא מצא בו שורות מספרים תקינות.")
+    st.error("קובץ הנתונים נמצא אך לא פוענח. ודא שהקובץ בגיטהאב נקרא בדיוק lotto2026.csv והוא הקובץ המקורי של מפעל הפיס.")
