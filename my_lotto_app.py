@@ -4,7 +4,7 @@ from collections import Counter
 import random
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - גרסה סופית בהחלט", layout="centered")
+st.set_page_config(page_title="לוטו חכם - קורא רשמי", layout="centered")
 
 st.markdown("""
     <style>
@@ -16,67 +16,113 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 @st.cache_data
-def load_strict_mifal_hapais(file_path):
-    # ניסיון טעינה עם התעלמות משורות כותרת פגומות וקידודים
-    for enc in ['utf-8', 'windows-1255', 'ansi', 'utf-8-sig']:
+def load_mifal_hapais_robust(file_path):
+    # ניסיון טעינה עם סוגי קידוד שונים שכיחים בקבצי אקסל ישראליים
+    encodings = ['utf-8', 'windows-1255', 'ansi', 'iso-8859-8']
+    df = None
+    
+    for enc in encodings:
         try:
-            # קריאה מבוססת מיקום עמודות (התעלמות משמות העמודות שעלולות להיות בג'יבריש)
-            df = pd.read_csv(file_path, encoding=enc, sep=None, engine='python', header=None, skiprows=1)
-            
-            # ניקוי שורות ריקות
-            df = df.dropna(how='all')
-            
-            records = []
-            for _, row in df.iterrows():
-                try:
-                    # המרה של השורה לרשימת ערכים נקיים
-                    row_values = [val for val in row.values if pd.notna(val)]
-                    
-                    # חילוץ כל המספרים שנמצאים בטווח של הלוטו (1 עד 37)
-                    valid_numbers = []
-                    for v in row_values:
-                        try:
-                            num = int(float(str(v).strip()))
-                            if 1 <= num <= 37:
-                                valid_numbers.append(num)
-                        except:
-                            continue
-                            
-                    # בקובץ מפעל הפיס יש לפחות 7 מספרים בכל שורת הגרלה תקינה
-                    if len(valid_numbers) >= 7:
-                        # אם יש מספר הגרלה בתחילת השורה והוא קטן מ-37, נסיר אותו כדי לא לבלבל
-                        if len(valid_numbers) == 8:
-                            valid_numbers = valid_numbers[1:]
-                            
-                        # 6 המספרים הראשונים הם מספר הגורל, והאחרון הוא המספר החזק
-                        regular_nums = valid_numbers[:6]
-                        strong_num = valid_numbers[6]
-                        
-                        if 1 <= strong_num <= 7:
-                            records.append({
-                                'מספרים': sorted(regular_nums),
-                                'חזק': strong_num,
-                                'פרס_גדול': len(row_values) > 10 # סימון זכיות לפי אורך שורה
-                            })
-                except:
-                    continue
-            if records:
-                return records
+            df = pd.read_csv(file_path, encoding=enc, sep=None, engine='python')
+            break
         except:
             continue
-    return None
+            
+    if df is None:
+        return None
 
-# טעינת הנתונים
-all_records = load_strict_mifal_hapais('lotto2026.csv')
+    # ניקוי רווחים משמות העמודות למקרה הצורך
+    df.columns = df.columns.str.strip()
+    
+    records = []
+    
+    # ניסיון 1: זיהוי עמודות לפי מיקום קבוע בקובץ מפעל הפיס הסטנדרטי
+    # בדרך כלל העמודות הראשונות הן מספר הגרלה ותאריך, ואז מופיעים 6 המספרים והחזק
+    try:
+        # נחפש עמודות שמכילות מספרים בטווח של לוטו כדי לזהות אותן אוטומטית
+        numeric_df = df.apply(pd.to_numeric, errors='coerce')
+        
+        # איתור עמודת המספר החזק (עמודה שכל הערכים בה הם בין 1 ל-7)
+        strong_candidates = [col for col in df.columns if numeric_df[col].between(1, 7).all() and 'חזק' in str(col).lower() or 'strong' in str(col).lower()]
+        
+        if not strong_candidates:
+            # אם לא נמצאה לפי שם, ניקח עמודה שמכילה ערכים בין 1 ל-7 בלבד ונמצאת לרוב בסוף או בהתחלה
+            strong_candidates = [col for col in df.columns if numeric_df[col].dropna().between(1, 7).all()]
+            
+        strong_col = strong_candidates[0] if strong_candidates else None
+        
+        # איתור 6 עמודות המספרים הרגילים (ערכים בין 1 ל-37)
+        num_cols = [col for col in df.columns if 'מספר' in str(col) or 'num' in str(col).lower()]
+        num_cols = [c for c in num_cols if c != strong_col][:6]
+        
+        # גיבוי: אם לא מצאנו לפי שם, ניקח את העמודות שמכילות מספרים מתאימים לפי מיקום
+        if len(num_cols) < 6:
+            potential_cols = [col for col in df.columns if numeric_df[col].dropna().between(1, 37).any() and col != strong_col]
+            num_cols = potential_cols[:6]
+            
+        if len(num_cols) == 6 and strong_col is not None:
+            for _, row in df.iterrows():
+                try:
+                    vals = [int(row[c]) for c in num_cols if pd.notna(row[c])]
+                    st_val = int(row[strong_col]) if pd.notna(row[strong_col]) else None
+                    if len(vals) == 6 and st_val is not None:
+                        records.append({
+                            'מספרים': vals,
+                            'חזק': st_val,
+                            'פרס_גדול': True # סימון ברירת מחדל לאנליזה
+                        })
+                except:
+                    continue
+    except:
+        pass
+        
+    # ניסיון 2: אם הניסיון המתוחכם נכשל, נבצע חילוץ גולמי לחלוטין לפי שורות ופסיקים
+    if not records:
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+            if len(lines) <= 1:
+                with open(file_path, 'r', encoding='windows-1255', errors='ignore') as f:
+                    lines = f.readlines()
+                    
+            for line in lines[1:]: # דילוג על כותרת
+                parts = [p.strip() for p in line.split(',') if p.strip()]
+                if len(parts) < 7:
+                    parts = [p.strip() for p in line.split(';') if p.strip()]
+                    
+                # סינון מספרים מתוך השורה
+                row_nums = []
+                for p in parts:
+                    if p.isdigit():
+                        row_nums.append(int(p))
+                        
+                # קובץ טיפוסי מכיל מספר הגרלה, תאריך, 6 מספרים ומספר חזק
+                # נחפש רצף של 6 מספרים בטווח 1-37 ומספר בטווח 1-7
+                lotto_nums = [n for n in row_nums if 1 <= n <= 37]
+                strong_nums = [n for n in row_nums if 1 <= n <= 7]
+                
+                if len(lotto_nums) >= 7 and strong_nums:
+                    records.append({
+                        'מספרים': lotto_nums[:6],
+                        'חזק': strong_nums[-1],
+                        'פרס_גדול': True
+                    })
+        except:
+            return None
+            
+    return records
+
+# טעינת הנתונים המשופרת
+all_records = load_mifal_hapais_robust('lotto2026.csv')
 
 if all_records:
-    # לקיחת 104 ההגרלות האחרונות ביותר (שנה אחורה קלנדרית)
+    # לקיחת 104 ההגרלות האחרונות (שנה אחורה) מהחלק העליון של קובץ מפעל הפיס
     records_year = all_records[:104]
     
-    # הפיכת הרשימה לסדר כרונולוגי ישר (מהישן לחדש) לצורך ניתוח מה בא אחרי מה
+    # סידור כרונולוגי מהישן לחדש
     records_year.reverse()
     
-    # חילוץ מאגרים לשנה האחרונה
+    # חילוץ מאגרים
     all_numbers = []
     all_strong = []
     for r in records_year:
@@ -89,8 +135,8 @@ if all_records:
     top_20_pool = [n for n, c in counts.most_common(20)]
     cold_numbers = [n for n in range(1, 38) if n not in top_20_pool][:7]
     
-    st.title("🎰 לוטו חכם: ניתוח 365 ימים אחרונים")
-    st.caption(f"פוענחו בהצלחה {len(records_year)} הגרלות מהשנה האחרונה מתוך קובץ מפעל הפיס.")
+    st.title("🎰 לוטו חכם: ניתוח קובץ מפעל הפיס")
+    st.caption(f"הנתונים פוענחו בהצלחה! מציג אנליזה עבור {len(records_year)} ההגרלות האחרונות.")
     
     # === חלק 1: ניתוח פיננסי ===
     st.subheader("💰 ניתוח פיננסי: מספרים חזקים ופוטנציאל הפרס")
@@ -99,10 +145,8 @@ if all_records:
     for strong_num in range(1, 8):
         matching_draws = [r for r in records_year if r.get('חזק') == strong_num]
         total_draws_for_num = len(matching_draws)
-        big_wins = sum(1 for r in matching_draws if r.get('פרס_גדול', False))
         
-        raw_power = (big_wins / total_draws_for_num * 100) if total_draws_for_num > 0 else 0
-        final_power = (raw_power * 0.7) + ((strong_counts.get(strong_num, 0) / len(records_year) * 100) * 0.3) if records_year else 0
+        final_power = (strong_counts.get(strong_num, 0) / len(records_year) * 100) if records_year else 0
         
         financial_data.append({
             "מספר חזק": f"מספר {strong_num}",
@@ -190,30 +234,36 @@ if all_records:
     if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 20 החמים)"):
         current_hot_12 = random.sample(top_20_pool, 12)
         st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
+        st.write(f"12 המספרים שנבחרו להגרלה זו: {', '.join(map(str, sorted(current_hot_12)))}")
         for i in range(1, 9):
             nums = sorted(random.sample(current_hot_12, 6))
-            st.info(f"טבלה {i}: {', '.join(map(str, nums))} | חזק: {selected_strong}")
+            st.info(f"טבלה {i}: \n\n {', '.join(map(str, nums))} | חזק: {selected_strong}")
         st.balloons()
 
     # כפתור 2
     if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (הפרשים קרובים)"):
         current_hot_12 = random.sample(top_20_pool, 12)
         st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
+        st.write(f"12 המספרים שנבחרו לאסטרטגיית מרווחים: {', '.join(map(str, sorted(current_hot_12)))}")
         for i in range(1, 9):
             valid_table = False
             attempts = 0
             while not valid_table and attempts < 100:
                 table = random.sample(current_hot_12, 6)
                 table.sort()
+                
                 diffs = [table[j+1] - table[j] for j in range(5)]
                 cond_diff = any(d in [1, 2, 3] for d in diffs)
+                
                 evens = sum(1 for n in table if n % 2 == 0)
                 cond_balance = evens in [2, 3, 4]
+                
                 cond_high = any(n > 31 for n in table)
+                
                 if cond_diff and cond_balance and cond_high:
                     valid_table = True
                 attempts += 1
-            st.success(f"טבלה {i}: {', '.join(map(str, table))} | חזק: {selected_strong}")
+            st.success(f"טבלה {i} (משולבת אסטרטגיות): \n\n {', '.join(map(str, table))} | חזק: {selected_strong}")
         st.balloons()
 else:
-    st.error("קובץ הנתונים נמצא אך לא פוענח. ודא שהקובץ בגיטהאב נקרא בדיוק lotto2026.csv והוא הקובץ המקורי של מפעל הפיס.")
+    st.error("שגיאה בפענוח מבנה הקובץ. ודא שהקובץ שהורד ממפעל הפיס לא עבר שינויים ידניים לפני העלאתו.")
