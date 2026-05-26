@@ -6,7 +6,7 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - צמצום 12 מדויק", layout="centered")
+st.set_page_config(page_title="לוטו חכם - תצוגת 12 ממוספרת", layout="centered")
 
 st.markdown("""
     <style>
@@ -14,6 +14,7 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .stButton>button {width: 100%; border-radius: 20px; height: 3.5em; font-weight: bold; margin-bottom: 10px;}
+    .number-box {display: inline-block; background-color: #f0f2f6; border: 1px solid #b9bdc5; border-radius: 5px; padding: 5px 10px; margin: 3px; font-weight: bold;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -220,10 +221,14 @@ selected_strong = random.randint(1, 7)
 
 # כפתור 1
 if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 12 החמים)"):
-    # נעילת 12 מספרים קבועה להפעלה הנוכחית
     current_hot_12 = sorted(random.sample(top_20_pool, 12))
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-    st.write(f"12 המספרים שננעלו להגרלה זו: {', '.join(map(str, current_hot_12))}")
+    
+    st.write("**12 המספרים שננעלו להגרלה זו:**")
+    boxes_html = "".join([f"<div class='number-box'>{idx+1}) {num}</div>" for idx, num in enumerate(current_hot_12)])
+    st.markdown(boxes_html, unsafe_allow_html=True)
+    
+    st.write("---")
     for i in range(1, 9):
         nums = sorted(random.sample(current_hot_12, 6))
         st.info(f"טבלה {i}: \n\n {', '.join(map(str, nums))} | חזק: {selected_strong}")
@@ -231,10 +236,14 @@ if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 12
 
 # כפתור 2
 if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (מתוך 12 החמים)") :
-    # נעילת 12 מספרים קבועה להפעלה הנוכחית
     current_hot_12 = sorted(random.sample(top_20_pool, 12))
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-    st.write(f"12 המספרים שננעלו לאסטרטגיית מרווחים: {', '.join(map(str, current_hot_12))}")
+    
+    st.write("**12 המספרים שננעלו לאסטרטגיית מרווחים:**")
+    boxes_html = "".join([f"<div class='number-box'>{idx+1}) {num}</div>" for idx, num in enumerate(current_hot_12)])
+    st.markdown(boxes_html, unsafe_allow_html=True)
+    
+    st.write("---")
     for i in range(1, 9):
         valid_table = False
         attempts = 0
@@ -255,7 +264,6 @@ if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (מתו�
                 valid_table = True
             attempts += 1
             
-        # אם בניתוח קשוח לא נמצא שילוב אופטימלי, ניקח פשוט 6 אקראיים מתוך ה-12 כדי לא לתקוע את התצוגה
         if not valid_table:
             table = sorted(random.sample(current_hot_12, 6))
             
