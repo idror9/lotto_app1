@@ -6,7 +6,7 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - קורא אוניברסלי", layout="centered")
+st.set_page_config(page_title="לוטו חכם - צמצום 12 מדויק", layout="centered")
 
 st.markdown("""
     <style>
@@ -38,7 +38,6 @@ def load_any_lotto_file():
         return None
 
     content = ""
-    # ניסיון קריאה ישיר של הטקסט עם כל הקידודים האפשריים
     for enc in ['utf-8-sig', 'windows-1255', 'utf-8', 'ansi', 'iso-8859-8']:
         try:
             with open(file_path, 'r', encoding=enc, errors='ignore') as f:
@@ -58,30 +57,19 @@ def load_any_lotto_file():
         if not line.strip():
             continue
             
-        # חילוץ כל המספרים מתוך השורה הנוכחית
         tokens = re.findall(r'\b\d+\b', line)
         if not tokens:
             continue
             
         ints = [int(t) for t in tokens]
-        
-        # סינון מספרים שמתאימים ללוטו (בין 1 ל-37)
-        # אנחנו מחפשים שורות שמכילות לפחות 7 מספרים בטווח הזה (6 רגילים + 1 חזק)
         valid_lotto_nums = [n for n in ints if 1 <= n <= 37]
         
-        # מניעת רעש של מספרי הגרלות גדולים (כמו הגרלה מספר 3450) או שנים (2025, 2026)
-        # קובץ מפעל הפיס הרשמי מכיל בשורה לרוב את מספר ההגרלה, התאריך, 6 מספרים והמספר החזק
         if len(valid_lotto_nums) >= 7:
-            # לפי המבנה הטיפוסי של מפעל הפיס:
-            # אם יש תאריך ומספר הגרלה בהתחלה, 6 המספרים והחזק נמצאים בהמשך השורה.
-            # נבדוק אם יש מספר בטווח 1-7 בסוף השורה או קרוב אליה שמתאים להיות החזק.
             strong_candidate = valid_lotto_nums[-1]
             if 1 <= strong_candidate <= 7:
                 strong_val = strong_candidate
-                # 6 המספרים שלפניו הם סדרת הגורל
                 lotto_series = valid_lotto_nums[-7:-1]
             else:
-                # ניסיון הפוך אם החזק מופיע בתחילת הרצף המספרי
                 strong_val = valid_lotto_nums[0]
                 lotto_series = valid_lotto_nums[1:7]
                 
@@ -94,10 +82,9 @@ def load_any_lotto_file():
                 
     return records
 
-# טעינת הנתונים האמיתיים מהקובץ
+# טעינת הנתונים האמיתיים
 all_historical_records = load_any_lotto_file()
 
-# הגנת חירום רק אם הקובץ פיזית ריק לחלוטין בגיטהאב
 if not all_historical_records:
     all_historical_records = []
     random.seed(42)
@@ -111,11 +98,8 @@ if not all_historical_records:
 else:
     is_simulation = False
 
-# אם מדובר בקובץ אמת, מפעל הפיס מסדר מהחדש לישן. 
-# נחתוך קודם את 104 ההגרלות האחרונות ביותר (העליונות ביותר בקובץ - השנה האחרונה)
 if not is_simulation:
     records_year = all_historical_records[:104]
-    # כעת נהפוך את 104 ההגרלות האלו כדי שהסדר יהיה מהישן לחדש לצורך חיזוי "מה מגיע אחרי מה"
     records_year.reverse()
 else:
     records_year = all_historical_records
@@ -235,24 +219,27 @@ st.write("### הפקת טורים חכמים למילוי:")
 selected_strong = random.randint(1, 7)
 
 # כפתור 1
-if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 20 החמים)"):
-    current_hot_12 = random.sample(top_20_pool, 12)
+if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 12 החמים)"):
+    # נעילת 12 מספרים קבועה להפעלה הנוכחית
+    current_hot_12 = sorted(random.sample(top_20_pool, 12))
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-    st.write(f"12 המספרים שנבחרו להגרלה זו: {', '.join(map(str, sorted(current_hot_12)))}")
+    st.write(f"12 המספרים שננעלו להגרלה זו: {', '.join(map(str, current_hot_12))}")
     for i in range(1, 9):
         nums = sorted(random.sample(current_hot_12, 6))
         st.info(f"טבלה {i}: \n\n {', '.join(map(str, nums))} | חזק: {selected_strong}")
     st.balloons()
 
 # כפתור 2
-if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (הפרשים קרובים)"):
-    current_hot_12 = random.sample(top_20_pool, 12)
+if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (מתוך 12 החמים)") :
+    # נעילת 12 מספרים קבועה להפעלה הנוכחית
+    current_hot_12 = sorted(random.sample(top_20_pool, 12))
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-    st.write(f"12 המספרים שנבחרו לאסטרטגיית מרווחים: {', '.join(map(str, sorted(current_hot_12)))}")
+    st.write(f"12 המספרים שננעלו לאסטרטגיית מרווחים: {', '.join(map(str, current_hot_12))}")
     for i in range(1, 9):
         valid_table = False
         attempts = 0
-        while not valid_table and attempts < 100:
+        table = []
+        while not valid_table and attempts < 200:
             table = random.sample(current_hot_12, 6)
             table.sort()
             
@@ -267,5 +254,10 @@ if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (הפר�
             if cond_diff and cond_balance and cond_high:
                 valid_table = True
             attempts += 1
+            
+        # אם בניתוח קשוח לא נמצא שילוב אופטימלי, ניקח פשוט 6 אקראיים מתוך ה-12 כדי לא לתקוע את התצוגה
+        if not valid_table:
+            table = sorted(random.sample(current_hot_12, 6))
+            
         st.success(f"טבלה {i} (משולבת אסטרטגיות): \n\n {', '.join(map(str, table))} | חזק: {selected_strong}")
     st.balloons()
