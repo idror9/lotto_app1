@@ -6,14 +6,48 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - מעקב היסטורי", layout="centered")
+st.set_page_config(page_title="לוטו חכם - יישור לימין", layout="centered")
 
+# הוספת קוד עיצוב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
 st.markdown("""
     <style>
+    /* הגדרת כיוון כללי מימין לשמאל */
+    html, body, [data-testid="stAppViewContainer"] {
+        direction: RTL;
+        text-align: right;
+    }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    .stButton>button {width: 100%; border-radius: 20px; height: 3.5em; font-weight: bold; margin-bottom: 10px;}
+    
+    /* עיצוב כפתורים גדולים ונוחים לנייד */
+    .stButton>button {
+        width: 100%; 
+        border-radius: 20px; 
+        height: 3.5em; 
+        font-weight: bold; 
+        margin-bottom: 10px;
+    }
+    
+    /* יישור כותרות ותפריטי בחירה לימין */
+    div[data-testid="stMarkdownContainer"] p, h1, h2, h3, h4, h5, h6 {
+        text-align: right;
+        direction: RTL;
+    }
+    div[data-testid="stSelectbox"] label {
+        text-align: right;
+        width: 100%;
+    }
+    div[data-testid="stSelectbox"] div[data-baseweb="select"] {
+        direction: RTL;
+        text-align: right;
+    }
+    
+    /* התאמת טבלאות הנתונים לכיוון עברית */
+    div[data-testid="stDataFrame"] {
+        direction: RTL;
+        text-align: right;
+    }
     </style>
     """, unsafe_allow_html=True)
 
