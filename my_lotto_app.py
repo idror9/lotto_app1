@@ -6,12 +6,11 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - יישור לימין", layout="centered")
+st.set_page_config(page_title="לוטו חכם - מבנה טבלאי עוקב", layout="centered")
 
-# הוספת קוד עיצוב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
+# קוד עיצוב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
 st.markdown("""
     <style>
-    /* הגדרת כיוון כללי מימין לשמאל */
     html, body, [data-testid="stAppViewContainer"] {
         direction: RTL;
         text-align: right;
@@ -20,7 +19,6 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    /* עיצוב כפתורים גדולים ונוחים לנייד */
     .stButton>button {
         width: 100%; 
         border-radius: 20px; 
@@ -29,7 +27,6 @@ st.markdown("""
         margin-bottom: 10px;
     }
     
-    /* יישור כותרות ותפריטי בחירה לימין */
     div[data-testid="stMarkdownContainer"] p, h1, h2, h3, h4, h5, h6 {
         text-align: right;
         direction: RTL;
@@ -42,10 +39,17 @@ st.markdown("""
         direction: RTL;
         text-align: right;
     }
-    
-    /* התאמת טבלאות הנתונים לכיוון עברית */
     div[data-testid="stDataFrame"] {
         direction: RTL;
+        text-align: right;
+    }
+    .ticket-box {
+        background-color: #f0f2f6;
+        border-right: 5px solid #ff4b4b;
+        padding: 10px;
+        margin: 5px 0px;
+        border-radius: 0px 10px 10px 0px;
+        font-weight: bold;
         text-align: right;
     }
     </style>
@@ -116,7 +120,6 @@ def load_any_lotto_file():
                 
     return records
 
-# טעינת הנתונים האמיתיים
 all_historical_records = load_any_lotto_file()
 
 if not all_historical_records:
@@ -210,7 +213,7 @@ with st.expander("🎲 סעיף 4: סימולציית מונטה קרלו"):
     st.write("**מנוע סימולציה פעיל:** מסנן צירופים חריגים על בסיס 104 ההגרלות האחרונות.")
 
 with st.expander("🎯 סעיף 5: תורת המשחקים (ללא שותפים)"):
-    st.write("**אסטרטגיית חלוקה:** שילוב מספרים מעל 31 כדי למנוע הצטלבות עם תאריכי ימי הולדת.")
+    st.write("**אסטרטגיית חלוקה:** שילוב מספרים מעל 31 כדי למנוע הצטלבות礼 עם תאריכי ימי הולדת.")
 
 st.divider()
 
@@ -252,7 +255,6 @@ st.write("### הפקת טורים חכמים ומעקב היסטורי שנתי:
 
 def check_ticket_performance(ticket_nums, ticket_strong, history):
     summary = {"3 ניחושים": 0, "3 + חזק": 0, "4 ניחושים": 0, "4 + חזק": 0}
-    
     for draw in history:
         match_count = len(set(ticket_nums) & set(draw['מספרים']))
         strong_match = (ticket_strong == draw['חזק'])
@@ -265,23 +267,30 @@ def check_ticket_performance(ticket_nums, ticket_strong, history):
             summary["4 ניחושים"] += 1
         elif match_count == 4 and strong_match:
             summary["4 + חזק"] += 1
-            
     return summary
 
-def display_tables_with_backtest(generated_tables, t_strong, history):
-    for i, t_nums in enumerate(generated_tables):
+def process_and_render_sequential(tickets, t_strong, history):
+    # 1. הדפסת גוש 8 הטורים ברצף אחד אחרי השני בראש העמוד
+    st.write("### 🎫 8 הטורים המומלצים למילוי:")
+    for idx, t_nums in enumerate(tickets):
+        st.markdown(f"<div class='ticket-box'>טור {idx+1}: &nbsp;&nbsp;&nbsp;&nbsp; {', '.join(map(str, t_nums))} &nbsp;&nbsp; | &nbsp;&nbsp; חזק: {t_strong}</div>", unsafe_allow_html=True)
+    
+    st.divider()
+    
+    # 2. הדפסת מבנה עוקב: טור ומיד מתחתיו טבלת ההיסטוריה שלו
+    st.write("### 📊 פירוט ביצועים היסטוריים (לפי טורים):")
+    for idx, t_nums in enumerate(tickets):
         perf = check_ticket_performance(t_nums, t_strong, history)
-        
         perf_data = {
             "קטגוריית זכייה": ["3 ניחושים", "3 + נוסף", "4 ניחושים", "4 + נוסף"],
             "כמות הצלחות בשנה האחרונה": [perf["3 ניחושים"], perf["3 + חזק"], perf["4 ניחושים"], perf["4 + חזק"]]
         }
         perf_df = pd.DataFrame(perf_data)
         
-        st.write(f"#### 📋 טבלה {i+1}:")
-        st.info(f"**מספרים:** {', '.join(map(str, t_nums))} | **חזק:** {t_strong}")
+        st.write(f"#### 📋 טור {idx+1}:")
+        st.info(f"**צירוף:** {', '.join(map(str, t_nums))} | **חזק:** {t_strong}")
         st.dataframe(perf_df.set_index("קטגוריית זכייה"), use_container_width=True)
-        st.write("")
+        st.write("---")
 
 selected_strong = random.randint(1, 7)
 
@@ -300,7 +309,7 @@ if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 12
     for _ in range(8):
         all_tickets.append(sorted(random.sample(current_hot_12, 6)))
         
-    display_tables_with_backtest(all_tickets, selected_strong, records_year)
+    process_and_render_sequential(all_tickets, selected_strong, records_year)
     st.balloons()
 
 # כפתור 2
@@ -340,5 +349,5 @@ if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (מתו�
             
         all_tickets.append(table)
         
-    display_tables_with_backtest(all_tickets, selected_strong, records_year)
+    process_and_render_sequential(all_tickets, selected_strong, records_year)
     st.balloons()
