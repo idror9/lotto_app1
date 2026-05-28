@@ -6,9 +6,9 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - רקע כחול מלא", layout="centered")
+st.set_page_config(page_title="לוטו חכם - עיצוב טבלאי אחיד", layout="centered")
 
-# קוד עיצוב ליישור מוחלט מימין לשמאל (RTL), התאמה לנייד ושינוי כל רקע התיבה לכחול
+# קוד עיצוב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
@@ -42,19 +42,6 @@ st.markdown("""
     div[data-testid="stDataFrame"] {
         direction: RTL;
         text-align: right;
-    }
-    
-    /* רקע כחול מלא, אחיד ורך לכל התיבה של הטור */
-    .ticket-box {
-        background-color: #e6f0fa;
-        border: 2px solid #1e88e5;
-        padding: 12px;
-        margin: 8px 0px;
-        border-radius: 10px;
-        font-weight: bold;
-        color: #0b2545;
-        text-align: right;
-        box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
     }
     </style>
     """, unsafe_allow_html=True)
@@ -274,12 +261,22 @@ def check_ticket_performance(ticket_nums, ticket_strong, history):
     return summary
 
 def process_and_render_sequential(tickets, t_strong, history):
+    # 1. בנייה והצגה של 8 הטורים בתוך טבלת נתונים נקייה ואחידה בראש העמוד
     st.write("### 🎫 8 הטורים המומלצים למילוי:")
+    
+    table_rows = []
     for idx, t_nums in enumerate(tickets):
-        st.markdown(f"<div class='ticket-box'>טור {idx+1}: &nbsp;&nbsp;&nbsp;&nbsp; {', '.join(map(str, t_nums))} &nbsp;&nbsp; | &nbsp;&nbsp; חזק: {t_strong}</div>", unsafe_allow_html=True)
+        table_rows.append({
+            "מספר סידורי": f"טור {idx+1}",
+            "צירוף מספרים": ", ".join(map(str, t_nums)),
+            "מספר חזק": f"מספר {t_strong}"
+        })
+    tickets_df = pd.DataFrame(table_rows)
+    st.dataframe(tickets_df.set_index("מספר סידורי"), use_container_width=True)
     
     st.divider()
     
+    # 2. הדפסת מבנה עוקב: טור ומיד מתחתיו טבלת ההיסטוריה שלו
     st.write("### 📊 פירוט ביצועים היסטוריים (לפי טורים):")
     for idx, t_nums in enumerate(tickets):
         perf = check_ticket_performance(t_nums, t_strong, history)
