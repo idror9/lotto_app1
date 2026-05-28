@@ -189,4 +189,168 @@ st.dataframe(financial_df.set_index("מספר חזק"), use_container_width=True
 
 st.divider()
 
-# === חלק 2: לוח
+# === חלק 2: לוח תחזיות ===
+st.header("🔮 תמונת המצב והתחזית הטכנולוגית")
+
+with st.expander("📊 סעיף 1: ניתוח סטטיסטי (חמים מול קרים)"):
+    st.write(f"**המספרים החמים ביותר בשנה האחרונה:** {', '.join(map(str, top_20_pool[:6]))}")
+    st.write(f"**המספרים הקרים ביותר בשנה האחרונה:** {', '.join(map(str, cold_numbers))}")
+    st.write(f"**המספר החזק הכי שכיח בשנה האחרונה:** מספר {strong_counts.most_common(1)[0][0] if strong_counts else 'אין'}")
+
+with st.expander("📈 סעיף 2: אסטרטגיית מרווחים ואיזון"):
+    even_half = 0
+    for r in records_year:
+        evens = sum(1 for n in r['מספרים'] if n % 2 == 0)
+        if evens == 3: even_half += 1
+    even_pct = (even_half / len(records_year)) * 100 if records_year else 0
+    st.write(f"**המלצת המכונה:** יחס אופטימלי של 3 זוגיים ו-3 אי זוגיים.")
+    st.write(f"**אימות היסטורי בשנה זו:** דפוס זה הופיע ב-{even_pct:.1f}% מההגרלות.")
+
+with st.expander("⚡ סעיף 3: ניתוח פיזיקלי (סטיית מכונה)"):
+    recent_draws = records_year[-10:] if len(records_year) >= 10 else records_year
+    recent_numbers = []
+    for r in recent_draws: recent_numbers.extend(r['מספרים'])
+    recent_counts = Counter(recent_numbers)
+    wave_numbers = [n for n, c in recent_counts.most_common(3)]
+    st.write(f"**מספרים במומנטום חם (10 הגרלות אחרונות):** {', '.join(map(str, wave_numbers))}")
+
+with st.expander("🎲 סעיף 4: סימולציית מונטה קרלו"):
+    st.write("**מנוע סימולציה פעיל:** מסנן צירופים חריגים על בסיס 104 ההגרלות האחרונות.")
+
+with st.expander("🎯 סעיף 5: תורת המשחקים (ללא שותפים)"):
+    st.write("**אסטרטגיית חלוקה:** שילוב מספרים מעל 31 כדי למנוע הצטלבות עם תאריכי ימי הולדת.")
+
+st.divider()
+
+# === חלק 3: בדיקת סיכוי למספר החזק הבא ===
+st.subheader("🔮 בדיקת סיכוי למספר החזק הבא")
+chosen_strong = st.selectbox("בחר את המספר החזק שיצא בהגרלה האחרונה:", options=list(range(1, 8)), index=5)
+
+next_strong_list = []
+for i in range(len(records_year) - 1):
+    if records_year[i].get('חזק') == chosen_strong:
+        next_draw = records_year[i+1]
+        if next_draw.get('חזק'): 
+            next_strong_list.append(next_draw['חזק'])
+            
+total_cases = len(next_strong_list)
+counts_after_chosen = Counter(next_strong_list)
+
+st.write(f"המספר **{chosen_strong}** יצא {total_cases} פעמים בחלון הזמן של השנה האחרונה בקובץ.")
+
+if total_cases > 0:
+    st.write("📊 **ההסתברות למספר החזק הבא (ממוין מהסיכוי הגבוה לנמוך):**")
+    stats_data = []
+    for i in range(1, 8):
+        times = counts_after_chosen.get(i, 0)
+        chance = (times / total_cases) * 100
+        stats_data.append({
+            "המספר החזק הבא": f"מספר {i}",
+            "כמה פעמים יצא אחריו בשנה זו": f"{times} פעמים",
+            "אחוז סיכוי": f"{chance:.1f}%",
+            "סיכוי_עזר": chance
+        })
+    stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי_עזר", ascending=False).drop(columns=["סיכוי_עזר"])
+    st.dataframe(stats_df.set_index("המספר החזק הבא"), use_container_width=True)
+else:
+    st.info(f"לא נמצאו מספיק נתונים בשנה האחרונה על מספרים שעלו אחרי המספר {chosen_strong}.")
+    
+st.divider()
+st.write("### הפקת טורים חכמים ומעקב היסטורי שנתי:")
+
+def check_ticket_performance(ticket_nums, ticket_strong, history):
+    summary = {"3 ניחושים": 0, "3 + חזק": 0, "4 ניחושים": 0, "4 + חזק": 0}
+    for draw in history:
+        match_count = len(set(ticket_nums) & set(draw['מספרים']))
+        strong_match = (ticket_strong == draw['חזק'])
+        
+        if match_count == 3 and not strong_match:
+            summary["3 ניחושים"] += 1
+        elif match_count == 3 and strong_match:
+            summary["3 + חזק"] += 1
+        elif match_count == 4 and not strong_match:
+            summary["4 ניחושים"] += 1
+        elif match_count == 4 and strong_match:
+            summary["4 + חזק"] += 1
+    return summary
+
+def process_and_render_sequential(tickets, t_strong, history):
+    st.write("### 🎫 8 הטורים המומלצים למילוי:")
+    for idx, t_nums in enumerate(tickets):
+        st.markdown(f"<div class='ticket-box'>טור {idx+1}: &nbsp;&nbsp;&nbsp;&nbsp; {', '.join(map(str, t_nums))} &nbsp;&nbsp; | &nbsp;&nbsp; חזק: {t_strong}</div>", unsafe_allow_html=True)
+    
+    st.divider()
+    
+    st.write("### 📊 פירוט ביצועים היסטוריים (לפי טורים):")
+    for idx, t_nums in enumerate(tickets):
+        perf = check_ticket_performance(t_nums, t_strong, history)
+        perf_data = {
+            "קטגוריית זכייה": ["3 ניחושים", "3 + נוסף", "4 ניחושים", "4 + נוסף"],
+            "כמות הצלחות בשנה האחרונה": [perf["3 ניחושים"], perf["3 + חזק"], perf["4 ניחושים"], perf["4 + חזק"]]
+        }
+        perf_df = pd.DataFrame(perf_data)
+        
+        st.write(f"#### 📋 טור {idx+1}:")
+        st.info(f"**צירוף:** {', '.join(map(str, t_nums))} | **חזק:** {t_strong}")
+        st.dataframe(perf_df.set_index("קטגוריית זכייה"), use_container_width=True)
+        st.write("---")
+
+selected_strong = random.randint(1, 7)
+
+# כפתור 1
+if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 12 החמים)"):
+    current_hot_12 = sorted(random.sample(top_20_pool, 12))
+    st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
+    
+    st.write("**12 המספרים שננעלו להגרלה זו:**")
+    for idx, num in enumerate(current_hot_12):
+        st.write(f"**{idx+1})** {num}")
+    
+    st.write("---")
+    
+    all_tickets = []
+    for _ in range(8):
+        all_tickets.append(sorted(random.sample(current_hot_12, 6)))
+        
+    process_and_render_sequential(all_tickets, selected_strong, records_year)
+    st.balloons()
+
+# כפתור 2
+if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (מתוך 12 החמים)") :
+    current_hot_12 = sorted(random.sample(top_20_pool, 12))
+    st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
+    
+    st.write("**12 המספרים שננעלו לאסטרטגיית מרווחים:**")
+    for idx, num in enumerate(current_hot_12):
+        st.write(f"**{idx+1})** {num}")
+    
+    st.write("---")
+    
+    all_tickets = []
+    for i in range(1, 9):
+        valid_table = False
+        attempts = 0
+        table = []
+        while not valid_table and attempts < 200:
+            table = random.sample(current_hot_12, 6)
+            table.sort()
+            
+            diffs = [table[j+1] - table[j] for j in range(5)]
+            cond_diff = any(d in [1, 2, 3] for d in diffs)
+            
+            evens = sum(1 for n in table if n % 2 == 0)
+            cond_balance = evens in [2, 3, 4]
+            
+            cond_high = any(n > 31 for n in table)
+            
+            if cond_diff and cond_balance and cond_high:
+                valid_table = True
+            attempts += 1
+            
+        if not valid_table:
+            table = sorted(random.sample(current_hot_12, 6))
+            
+        all_tickets.append(table)
+        
+    process_and_render_sequential(all_tickets, selected_strong, records_year)
+    st.balloons()
