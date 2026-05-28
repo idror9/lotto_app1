@@ -6,9 +6,9 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - רקע כחול רך", layout="centered")
+st.set_page_config(page_title="לוטו חכם - רקע כחול מלא", layout="centered")
 
-# קוד עיצוב ליישור מוחלט מימין לשמאל (RTL), התאמה לנייד ושינוי רקע התיבות לכחול נוח לעיניים
+# קוד עיצוב ליישור מוחלט מימין לשמאל (RTL), התאמה לנייד ושינוי כל רקע התיבה לכחול
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
@@ -44,14 +44,13 @@ st.markdown("""
         text-align: right;
     }
     
-    /* רקע כחול פסטל רך ונוח לעיניים עבור תיבות הטורים */
+    /* רקע כחול מלא, אחיד ורך לכל התיבה של הטור */
     .ticket-box {
         background-color: #e6f0fa;
-        border: 2px solid #a3c2e0;
-        border-right: 6px solid #1e88e5;
+        border: 2px solid #1e88e5;
         padding: 12px;
         margin: 8px 0px;
-        border-radius: 0px 10px 10px 0px;
+        border-radius: 10px;
         font-weight: bold;
         color: #0b2545;
         text-align: right;
