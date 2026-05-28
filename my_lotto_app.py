@@ -6,9 +6,9 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - טבלאות כחולות", layout="centered")
+st.set_page_config(page_title="לוטו חכם - כפיית רקע כחול", layout="centered")
 
-# קוד עיצוב ליישור מוחלט מימין לשמאל (RTL), התאמה לנייד וצביעת הטבלאות בכחול
+# קוד עיצוב מתקדם לכפיית צבע כחול על הטבלאות גם במצב כהה (Dark Mode)
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
@@ -40,14 +40,23 @@ st.markdown("""
         text-align: right;
     }
     
-    /* יישור טבלאות וצביעת הרקע שלהן בכחול פסטל נוח לעיניים */
+    /* יישור טבלאות וכפיית רקע כחול מוחלט על כל רכיבי ה-DataFrame */
     div[data-testid="stDataFrame"] {
-        direction: RTL;
-        text-align: right;
+        direction: RTL !important;
+        text-align: right !important;
     }
-    div[data-testid="stDataFrame"] data-table, 
-    div[data-testid="stDataFrame"] [role="grid"] {
+    
+    /* צביעת תאי הטבלה, הכותרות וכל חלקי הנתונים בכחול פסטל עם טקסט כהה */
+    div[data-testid="stDataFrame"] div, 
+    div[data-testid="stDataFrame"] table, 
+    div[data-testid="stDataFrame"] th, 
+    div[data-testid="stDataFrame"] td, 
+    div[data-testid="stDataFrame"] [role="grid"], 
+    div[data-testid="stDataFrame"] [role="gridcell"],
+    div[data-testid="stDataFrame"] [role="columnheader"] {
         background-color: #e6f0fa !important;
+        color: #0b2545 !important;
+        font-weight: bold !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -267,7 +276,7 @@ def check_ticket_performance(ticket_nums, ticket_strong, history):
     return summary
 
 def process_and_render_sequential(tickets, t_strong, history):
-    # 1. הצגת 8 הטורים בתוך טבלת נתונים נקייה ואחידה בצבע כחול
+    # 1. הצגת 8 הטורים בתוך טבלת נתונים נקייה ואחידה
     st.write("### 🎫 8 הטורים המומלצים למילוי:")
     
     table_rows = []
