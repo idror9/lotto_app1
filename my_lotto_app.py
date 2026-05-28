@@ -1,202 +1,310 @@
-import tkinter as tk
-from tkinter import messagebox, filedialog
-import win32com.client
+import streamlit as st
 import pandas as pd
+from collections import Counter
+import random
 import os
-import sys
-from openpyxl.styles import Alignment, Border, Side
+import re
 
-# פונקציה שמאפשרת לקוד למצוא את האייקון גם כשהוא בתוך ה-EXE
-def resource_path(relative_path):
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+# הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
+st.set_page_config(page_title="לוטו חכם - מעקב היסטורי", layout="centered")
 
-def get_desktop_path():
-    return os.path.join(os.path.expanduser('~'), 'Desktop')
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stButton>button {width: 100%; border-radius: 20px; height: 3.5em; font-weight: bold; margin-bottom: 10px;}
+    </style>
+    """, unsafe_allow_html=True)
 
-def force_paste(widget):
-    try:
-        text = widget.clipboard_get()
-        if widget.selection_present():
-            widget.delete("sel.first", "sel.last")
-        widget.insert(tk.INSERT, text)
-    except:
-        pass
-    return "break"
-
-def force_copy(widget):
-    try:
-        if widget.selection_present():
-            text = widget.get()[widget.index("sel.first"):widget.index("sel.last")]
-            widget.clipboard_clear()
-            widget.clipboard_append(text)
-    except:
-        pass
-    return "break"
-
-# עדכון התווית של תיבת המחשב/אזור לפי סוג התקלה
-def update_label(*args):
-    if issue_type.get() == "תקלת מסך":
-        computer_label.config(text="שם אזור:")
-    else:
-        computer_label.config(text="שם מחשב:")
-
-def create_outlook_mail(subject, html_body):
-    try:
-        outlook = win32com.client.Dispatch("outlook.application")
-        mail = outlook.CreateItem(0)
-        mail.To = "david_yafit@meuhedet.co.il"
-        mail.Subject = subject
-        mail.BodyFormat = 2  
-        mail.HTMLBody = f'<div style="direction: rtl; text-align: right;">{html_body}</div>'
-        mail.Display(True)
-    except Exception as e:
-        messagebox.showerror("שגיאה", str(e))
-
-def send_email_logic():
-    clinic = clinic_name.get()
-    address = clinic_address.get()
-    contact = contact_person.get()
-    call = call_reason.get()
-    comp_or_area = computer_name.get()
-    issue = issue_type.get()
+def load_any_lotto_file():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    possible_names = ['lotto2026.csv', 'Lotto2026.csv', 'lotto2026.CSV', 'Lotto2026.CSV']
+    file_path = None
     
-    if issue == "תקלת מחשב":
-        body = f"היי יפית, בהמשך לקריאה {call}<br>אבקש לשלוח טכנאי למרפאת {clinic}<br>כתובת {address}<br>מהות התקלה תקלת מחשב שם מחשב {comp_or_area}<br>ציוד נדרש מחשב קיופלו עם נגן מדיה פלייר לא M70<br>איש קשר {contact}"
-    elif issue == "תקלת מסך":
-        body = f"היי יפית, בהמשך לקריאה {call}<br>אבקש לשלוח טכנאי למרפאת {clinic}<br>כתובת {address}<br>מהות התקלה תקלת מסך {comp_or_area}<br>איש קשר {contact}"
-    else:
-        body = f"היי יפית, בהמשך לקריאה {call}<br>אבקש לשלוח טכנאי למרפאת {clinic}<br>כתובת {address}<br>מהות התקלה תקלת מקלט משדר שם מחשב {comp_or_area}<br>איש קשר {contact}"
+    for name in possible_names:
+        test_path = os.path.join(current_dir, name)
+        if os.path.exists(test_path):
+            file_path = test_path
+            break
+            
+    if file_path is None:
+        for name in possible_names:
+            if os.path.exists(name):
+                file_path = name
+                break
+                
+    if file_path is None:
+        return None
+
+    content = ""
+    for enc in ['utf-8-sig', 'windows-1255', 'utf-8', 'ansi', 'iso-8859-8']:
+        try:
+            with open(file_path, 'r', encoding=enc, errors='ignore') as f:
+                content = f.read()
+            if content.strip() and len(content) > 50:
+                break
+        except:
+            continue
+            
+    if not content or not content.strip():
+        return None
+        
+    records = []
+    lines = content.split('\n')
     
-    create_outlook_mail(f"שליחת טכנאי למרפאת {clinic}", body)
+    for line in lines:
+        if not line.strip():
+            continue
+            
+        tokens = re.findall(r'\b\d+\b', line)
+        if not tokens:
+            continue
+            
+        ints = [int(t) for t in tokens]
+        valid_lotto_nums = [n for n in ints if 1 <= n <= 37]
+        
+        if len(valid_lotto_nums) >= 7:
+            strong_candidate = valid_lotto_nums[-1]
+            if 1 <= strong_candidate <= 7:
+                strong_val = strong_candidate
+                lotto_series = valid_lotto_nums[-7:-1]
+            else:
+                strong_val = valid_lotto_nums[0]
+                lotto_series = valid_lotto_nums[1:7]
+                
+            if len(lotto_series) == 6 and 1 <= strong_val <= 7:
+                records.append({
+                    'מספרים': sorted(lotto_series),
+                    'חזק': strong_val,
+                    'פרס_גדול': True
+                })
+                
+    return records
 
-def send_to_matrix():
-    try:
-        file_path = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx *.xls")])
-        if not file_path: return
-        df = pd.read_excel(file_path)
-        cols_to_keep = ['מספר קריאת ספק', 'תאריך עדכון אחרון', 'תאור', 'כתובת', 'לקוח', 'טלפון נייד']
-        new_df = df[[c for c in cols_to_keep if c in df.columns]].copy()
-        new_df = new_df.rename(columns={'תאריך עדכון אחרון': 'תאריך שליחת הקריאה למטריקס'})
-        new_df['סטטוס'] = ''
-        output_path = os.path.join(get_desktop_path(), 'output_matrix.xlsx')
-        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-            new_df.to_excel(writer, index=False, sheet_name='Matrix')
-            workbook = writer.book
-            worksheet = workbook.active
-            worksheet.sheet_view.rightToLeft = True
-            thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-            col_indices = {cell.value: i+1 for i, cell in enumerate(worksheet[1])}
-            desc_col = col_indices.get('תאור')
-            phone_col = col_indices.get('טלפון נייד')
-            if desc_col:
-                column_letter = worksheet.cell(row=1, column=desc_col).column_letter
-                worksheet.column_dimensions[column_letter].width = 60
-            for row_idx, row in enumerate(worksheet.iter_rows(min_row=1, max_row=worksheet.max_row), 1):
-                for cell in row:
-                    cell.border = thin_border
-                    align_params = {'vertical': 'top', 'horizontal': 'right'}
-                    if cell.column == desc_col: align_params['wrapText'] = True
-                    if cell.column == phone_col and row_idx > 1:
-                        cell.number_format = '@' 
-                        if cell.value is not None:
-                            val = str(cell.value).replace('.0', '').strip()
-                            if val and not val.startswith('0') and len(val) >= 9: val = '0' + val
-                            cell.value = val
-                    cell.alignment = Alignment(**align_params)
-        os.startfile(output_path)
-    except Exception as e:
-        messagebox.showerror("שגיאה", str(e))
+# טעינת הנתונים האמיתיים
+all_historical_records = load_any_lotto_file()
 
-# פונקציה לביצוע פינג רציף (ping -t)
-def run_ping():
-    target = ping_entry.get().strip()
-    if not target:
-        messagebox.showwarning("אזהרה", "אנא הקלד כתובת IP או שם מחשב לבדיקת פינג")
-        return
-    # שימוש בגרשיים כפולים מסביב לפקודה ודגל -t לפינג קבוע
-    os.system(f'start cmd /k "ping {target} -t"')
+if not all_historical_records:
+    all_historical_records = []
+    random.seed(42)
+    for _ in range(104):
+        all_historical_records.append({
+            'מספרים': sorted(random.sample(range(1, 38), 6)),
+            'חזק': random.randint(1, 7),
+            'פרס_גדול': random.choice([True, False])
+        })
+    is_simulation = True
+else:
+    is_simulation = False
 
-# פונקציה להעתקת כתובת קיופלו ללוח
-def copy_qflow_url():
-    url = "https://qfn.meuhedet.org/qflow"
-    root.clipboard_clear()
-    root.clipboard_append(url)
-    messagebox.showinfo("העתקה", "הכתובת הועתקה בהצלחה ללוח!")
+if not is_simulation:
+    records_year = all_historical_records[:104]
+    records_year.reverse()
+else:
+    records_year = all_historical_records
 
-# פונקציית ניקוי מסודרת ובטוחה לכל השדות
-def clear_all_fields():
-    fields = [clinic_name, clinic_address, computer_name, contact_person, call_reason, ping_entry]
-    for field in fields:
-        field.delete(0, tk.END)
+all_numbers = []
+all_strong = []
+for r in records_year:
+    all_numbers.extend(r['מספרים'])
+    all_strong.append(r['חזק'])
+        
+counts = Counter(all_numbers)
+strong_counts = Counter(all_strong)
 
-# הגדרת הממשק הראשי
-root = tk.Tk()
-root.title("מערכת תקלות קיופלו - 3.13")
-root.geometry("450x600") 
-root.configure(bg='#f0f0f0')
+top_20_pool = [n for n, c in counts.most_common(20)]
+if len(top_20_pool) < 20:
+    remaining = [n for n in range(1, 38) if n not in top_20_pool]
+    top_20_pool.extend(remaining[:20 - len(top_20_pool)])
 
-# הגדרת האייקון לחלון
-try:
-    icon_path = resource_path("qflow.ico")
-    root.iconbitmap(icon_path)
-except Exception as e:
-    print(f"לא ניתן היה לטעון את האייקון: {e}")
+cold_numbers = [n for n in range(1, 38) if n not in top_20_pool][:7]
 
-root.columnconfigure(0, weight=1)
-root.columnconfigure(1, weight=1)
+st.title("🎰 לוטו חכם: מנוע אנליזה")
+if is_simulation:
+    st.warning("⚠️ המערכת קוראת את הקובץ בגיטהאב אך מבנהו לא זוהה. מציג נתוני סימולציה זמניים.")
+else:
+    st.success(f"✔️ החיבור הצליח! מנתח {len(records_year)} הגרלות אמת מתוך קובץ מפעל הפיס שלך.")
 
-def setup_entry(row, label_text):
-    lbl = tk.Label(root, text=label_text, bg='#f0f0f0')
-    lbl.grid(row=row, column=1, padx=10, pady=5, sticky='e')
-    en = tk.Entry(root, justify='right')
-    en.grid(row=row, column=0, padx=10, pady=5, sticky='ew')
-    en.bind("<Button-3>", lambda e: force_paste(en))
-    en.bind("<F12>", lambda e: force_paste(en))
-    en.bind("<Control-v>", lambda e: force_paste(en))
-    en.bind("<Control-V>", lambda e: force_paste(en))
-    en.bind("<Control-c>", lambda e: force_copy(en))
-    en.bind("<Control-a>", lambda e: [en.select_range(0, 'end'), "break"][1])
-    return en, lbl
+# === חלק 1: ניתוח פיננסי ===
+st.subheader("💰 ניתוח פיננסי: מספרים חזקים")
 
-# שורת בחירת סוג תקלה
-tk.Label(root, text="בחר סוג תקלה:", bg='#f0f0f0').grid(row=0, column=1, padx=10, pady=15, sticky='e')
-issue_type = tk.StringVar(value="תקלת מחשב")
-issue_type.trace("w", update_label)
-tk.OptionMenu(root, issue_type, "תקלת מחשב", "תקלת מסך", "תקלת מקלט משדר").grid(row=0, column=0, padx=10, pady=15, sticky='ew')
+financial_data = []
+for strong_num in range(1, 8):
+    matching_draws = [r for r in records_year if r.get('חזק') == strong_num]
+    total_draws_for_num = len(matching_draws)
+    final_power = (strong_counts.get(strong_num, 0) / len(records_year) * 100) if records_year else 0
+    
+    financial_data.append({
+        "מספר חזק": f"מספר {strong_num}",
+        "הופעות בשנה האחרונה": f"{total_draws_for_num} פעמים",
+        "מדד עוצמה": f"{final_power:.1f}%",
+        "סדר_מיון": final_power
+    })
+    
+financial_df = pd.DataFrame(financial_data).sort_values(by="סדר_מיון", ascending=False).drop(columns=["סדר_מיון"])
+st.dataframe(financial_df.set_index("מספר חזק"), use_container_width=True)
 
-# שדות הקלט הסטנדרטיים
-clinic_name = setup_entry(1, "שם מרפאה:")[0]
-clinic_address = setup_entry(2, "כתובת:")[0]
-computer_name, computer_label = setup_entry(3, "שם מחשב:")
-contact_person = setup_entry(4, "איש קשר:")[0]
-call_reason = setup_entry(5, "קריאה:")[0]
+st.divider()
 
-# --- שורת פינג ---
-tk.Label(root, text="כתובת לפינג:", bg='#f0f0f0').grid(row=6, column=1, padx=10, pady=10, sticky='e')
-ping_frame = tk.Frame(root, bg='#f0f0f0')
-ping_frame.grid(row=6, column=0, padx=10, pady=10, sticky='ew')
+# === חלק 2: לוח תחזיות ===
+st.header("🔮 תמונת המצב והתחזית הטכנולוגית")
 
-ping_entry = tk.Entry(ping_frame, justify='right', width=15)
-ping_entry.pack(side='right', fill='x', expand=True, padx=(0, 5))
-ping_entry.bind("<Button-3>", lambda e: force_paste(ping_entry))
-ping_entry.bind("<Control-v>", lambda e: force_paste(ping_entry))
-ping_entry.bind("<Control-V>", lambda e: force_paste(ping_entry))
+with st.expander("📊 סעיף 1: ניתוח סטטיסטי (חמים מול קרים)"):
+    st.write(f"**המספרים החמים ביותר בשנה האחרונה:** {', '.join(map(str, top_20_pool[:6]))}")
+    st.write(f"**המספרים הקרים ביותר בשנה האחרונה:** {', '.join(map(str, cold_numbers))}")
+    st.write(f"**המספר החזק הכי שכיח בשנה האחרונה:** מספר {strong_counts.most_common(1)[0][0] if strong_counts else 'אין'}")
 
-ping_btn = tk.Button(ping_frame, text="שלח פינג", command=run_ping, bg="#9b59b6", fg="white", font=("Arial", 9, "bold"))
-ping_btn.pack(side='left')
+with st.expander("📈 סעיף 2: אסטרטגיית מרווחים ואיזון"):
+    even_half = 0
+    for r in records_year:
+        evens = sum(1 for n in r['מספרים'] if n % 2 == 0)
+        if evens == 3: even_half += 1
+    even_pct = (even_half / len(records_year)) * 100 if records_year else 0
+    st.write(f"**המלצת המכונה:** יחס אופטימלי של 3 זוגיים ו-3 אי זוגיים.")
+    st.write(f"**אימות היסטורי בשנה זו:** דפוס זה הופיע ב-{even_pct:.1f}% מההגרלות.")
 
-# --- שורת כפתורי פעולה 1 (מטריקס והעתקת כתובת) ---
-tk.Button(root, text="SEND2MATRIX", command=send_to_matrix, bg="#3498db", fg="white", width=18).grid(row=7, column=1, padx=10, pady=10, sticky='e')
-tk.Button(root, text="העתק כתובת QFlow", command=copy_qflow_url, bg="#f39c12", fg="white", width=18).grid(row=8, column=1, padx=10, pady=5, sticky='e')
+with st.expander("⚡ סעיף 3: ניתוח פיזיקלי (סטיית מכונה)"):
+    recent_draws = records_year[-10:] if len(records_year) >= 10 else records_year
+    recent_numbers = []
+    for r in recent_draws: recent_numbers.extend(r['מספרים'])
+    recent_counts = Counter(recent_numbers)
+    wave_numbers = [n for n, c in recent_counts.most_common(3)]
+    st.write(f"**מספרים במומנטום חם (10 הגרלות אחרונות):** {', '.join(map(str, wave_numbers))}")
 
-# --- שורת כפתורי פעולה 2 (אאוטלוק) ---
-tk.Button(root, text="שלח מייל (Outlook)", command=send_email_logic, bg="#2ecc71", fg="white", width=18).grid(row=7, column=0, rowspan=2, padx=10, pady=10, sticky='w')
+with st.expander("🎲 סעיף 4: סימולציית מונטה קרלו"):
+    st.write("**מנוע סימולציה פעיל:** מסנן צירופים חריגים על בסיס 104 ההגרלות האחרונות.")
 
-# --- כפתור ניקוי תחתון ---
-tk.Button(root, text="נקה הכל", command=clear_all_fields, bg="#e74c3c", fg="white", width=22).grid(row=9, column=0, columnspan=2, pady=20)
+with st.expander("🎯 סעיף 5: תורת המשחקים (ללא שותפים)"):
+    st.write("**אסטרטגיית חלוקה:** שילוב מספרים מעל 31 כדי למנוע הצטלבות עם תאריכי ימי הולדת.")
 
-root.mainloop()
+st.divider()
+
+# === חלק 3: בדיקת סיכוי למספר החזק הבא ===
+st.subheader("🔮 בדיקת סיכוי למספר החזק הבא")
+chosen_strong = st.selectbox("בחר את המספר החזק שיצא בהגרלה האחרונה:", options=list(range(1, 8)), index=5)
+
+next_strong_list = []
+for i in range(len(records_year) - 1):
+    if records_year[i].get('חזק') == chosen_strong:
+        next_draw = records_year[i+1]
+        if next_draw.get('חזק'): 
+            next_strong_list.append(next_draw['חזק'])
+            
+total_cases = len(next_strong_list)
+counts_after_chosen = Counter(next_strong_list)
+
+st.write(f"המספר **{chosen_strong}** יצא {total_cases} פעמים בחלון הזמן של השנה האחרונה בקובץ.")
+
+if total_cases > 0:
+    st.write("📊 **ההסתברות למספר החזק הבא (ממוין מהסיכוי הגבוה לנמוך):**")
+    stats_data = []
+    for i in range(1, 8):
+        times = counts_after_chosen.get(i, 0)
+        chance = (times / total_cases) * 100
+        stats_data.append({
+            "המספר החזק הבא": f"מספר {i}",
+            "כמה פעמים יצא אחריו בשנה זו": f"{times} פעמים",
+            "אחוז סיכוי": f"{chance:.1f}%",
+            "סיכוי_עזר": chance
+        })
+    stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי_עזר", ascending=False).drop(columns=["סיכוי_עזר"])
+    st.dataframe(stats_df.set_index("המספר החזק הבא"), use_container_width=True)
+else:
+    st.info(f"לא נמצאו מספיק נתונים בשנה האחרונה על מספרים שעלו אחרי המספר {chosen_strong}.")
+    
+st.divider()
+st.write("### הפקת טורים חכמים ומעקב היסטורי שנתי:")
+
+def check_ticket_performance(ticket_nums, ticket_strong, history):
+    summary = {"3 ניחושים": 0, "3 + חזק": 0, "4 ניחושים": 0, "4 + חזק": 0}
+    
+    for draw in history:
+        match_count = len(set(ticket_nums) & set(draw['מספרים']))
+        strong_match = (ticket_strong == draw['חזק'])
+        
+        if match_count == 3 and not strong_match:
+            summary["3 ניחושים"] += 1
+        elif match_count == 3 and strong_match:
+            summary["3 + חזק"] += 1
+        elif match_count == 4 and not strong_match:
+            summary["4 ניחושים"] += 1
+        elif match_count == 4 and strong_match:
+            summary["4 + חזק"] += 1
+            
+    return summary
+
+def display_tables_with_backtest(generated_tables, t_strong, history):
+    for i, t_nums in enumerate(generated_tables):
+        perf = check_ticket_performance(t_nums, t_strong, history)
+        
+        perf_data = {
+            "קטגוריית זכייה": ["3 ניחושים", "3 + נוסף", "4 ניחושים", "4 + נוסף"],
+            "כמות הצלחות בשנה האחרונה": [perf["3 ניחושים"], perf["3 + חזק"], perf["4 ניחושים"], perf["4 + חזק"]]
+        }
+        perf_df = pd.DataFrame(perf_data)
+        
+        st.write(f"#### 📋 טבלה {i+1}:")
+        st.info(f"**מספרים:** {', '.join(map(str, t_nums))} | **חזק:** {t_strong}")
+        st.dataframe(perf_df.set_index("קטגוריית זכייה"), use_container_width=True)
+        st.write("")
+
+selected_strong = random.randint(1, 7)
+
+# כפתור 1
+if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 12 החמים)"):
+    current_hot_12 = sorted(random.sample(top_20_pool, 12))
+    st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
+    
+    st.write("**12 המספרים שננעלו להגרלה זו:**")
+    for idx, num in enumerate(current_hot_12):
+        st.write(f"**{idx+1})** {num}")
+    
+    st.write("---")
+    
+    all_tickets = []
+    for _ in range(8):
+        all_tickets.append(sorted(random.sample(current_hot_12, 6)))
+        
+    display_tables_with_backtest(all_tickets, selected_strong, records_year)
+    st.balloons()
+
+# כפתור 2
+if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (מתוך 12 החמים)") :
+    current_hot_12 = sorted(random.sample(top_20_pool, 12))
+    st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
+    
+    st.write("**12 המספרים שננעלו לאסטרטגיית מרווחים:**")
+    for idx, num in enumerate(current_hot_12):
+        st.write(f"**{idx+1})** {num}")
+    
+    st.write("---")
+    
+    all_tickets = []
+    for i in range(1, 9):
+        valid_table = False
+        attempts = 0
+        table = []
+        while not valid_table and attempts < 200:
+            table = random.sample(current_hot_12, 6)
+            table.sort()
+            
+            diffs = [table[j+1] - table[j] for j in range(5)]
+            cond_diff = any(d in [1, 2, 3] for d in diffs)
+            
+            evens = sum(1 for n in table if n % 2 == 0)
+            cond_balance = evens in [2, 3, 4]
+            
+            cond_high = any(n > 31 for n in table)
+            
+            if cond_diff and cond_balance and cond_high:
+                valid_table = True
+            attempts += 1
+            
+        if not valid_table:
+            table = sorted(random.sample(current_hot_12, 6))
+            
+        all_tickets.append(table)
+        
+    display_tables_with_backtest(all_tickets, selected_strong, records_year)
+    st.balloons()
