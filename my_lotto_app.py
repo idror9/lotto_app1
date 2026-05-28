@@ -6,9 +6,9 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - עיצוב טבלאי אחיד", layout="centered")
+st.set_page_config(page_title="לוטו חכם - טבלאות כחולות", layout="centered")
 
-# קוד עיצוב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
+# קוד עיצוב ליישור מוחלט מימין לשמאל (RTL), התאמה לנייד וצביעת הטבלאות בכחול
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
@@ -39,9 +39,15 @@ st.markdown("""
         direction: RTL;
         text-align: right;
     }
+    
+    /* יישור טבלאות וצביעת הרקע שלהן בכחול פסטל נוח לעיניים */
     div[data-testid="stDataFrame"] {
         direction: RTL;
         text-align: right;
+    }
+    div[data-testid="stDataFrame"] data-table, 
+    div[data-testid="stDataFrame"] [role="grid"] {
+        background-color: #e6f0fa !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -261,7 +267,7 @@ def check_ticket_performance(ticket_nums, ticket_strong, history):
     return summary
 
 def process_and_render_sequential(tickets, t_strong, history):
-    # 1. בנייה והצגה של 8 הטורים בתוך טבלת נתונים נקייה ואחידה בראש העמוד
+    # 1. הצגת 8 הטורים בתוך טבלת נתונים נקייה ואחידה בצבע כחול
     st.write("### 🎫 8 הטורים המומלצים למילוי:")
     
     table_rows = []
