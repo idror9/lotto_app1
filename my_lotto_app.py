@@ -6,9 +6,9 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - כפיית רקע כחול", layout="centered")
+st.set_page_config(page_title="לוטו חכם - תצוגה נקייה", layout="centered")
 
-# קוד עיצוב מתקדם לכפיית צבע כחול על הטבלאות גם במצב כהה (Dark Mode)
+# קוד עיצוב בסיסי ויציב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
@@ -40,23 +40,10 @@ st.markdown("""
         text-align: right;
     }
     
-    /* יישור טבלאות וכפיית רקע כחול מוחלט על כל רכיבי ה-DataFrame */
+    /* יישור טבלאות נתונים לימין בצורה טבעית */
     div[data-testid="stDataFrame"] {
-        direction: RTL !important;
-        text-align: right !important;
-    }
-    
-    /* צביעת תאי הטבלה, הכותרות וכל חלקי הנתונים בכחול פסטל עם טקסט כהה */
-    div[data-testid="stDataFrame"] div, 
-    div[data-testid="stDataFrame"] table, 
-    div[data-testid="stDataFrame"] th, 
-    div[data-testid="stDataFrame"] td, 
-    div[data-testid="stDataFrame"] [role="grid"], 
-    div[data-testid="stDataFrame"] [role="gridcell"],
-    div[data-testid="stDataFrame"] [role="columnheader"] {
-        background-color: #e6f0fa !important;
-        color: #0b2545 !important;
-        font-weight: bold !important;
+        direction: RTL;
+        text-align: right;
     }
     </style>
     """, unsafe_allow_html=True)
