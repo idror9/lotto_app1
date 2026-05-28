@@ -6,9 +6,9 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - מבנה טבלאי עוקב", layout="centered")
+st.set_page_config(page_title="לוטו חכם - רקע בהיר לטורים", layout="centered")
 
-# קוד עיצוב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
+# קוד עיצוב ליישור מוחלט מימין לשמאל (RTL), התאמה לנייד ושינוי רקע התיבות ללבן
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
@@ -43,14 +43,19 @@ st.markdown("""
         direction: RTL;
         text-align: right;
     }
+    
+    /* שינוי הרקע של תיבות הטורים ללבן עם מסגרת ברורה */
     .ticket-box {
-        background-color: #f0f2f6;
-        border-right: 5px solid #ff4b4b;
-        padding: 10px;
-        margin: 5px 0px;
+        background-color: #ffffff;
+        border: 2px solid #b9bdc5;
+        border-right: 6px solid #ff4b4b;
+        padding: 12px;
+        margin: 8px 0px;
         border-radius: 0px 10px 10px 0px;
         font-weight: bold;
+        color: #000000;
         text-align: right;
+        box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
     }
     </style>
     """, unsafe_allow_html=True)
@@ -213,7 +218,7 @@ with st.expander("🎲 סעיף 4: סימולציית מונטה קרלו"):
     st.write("**מנוע סימולציה פעיל:** מסנן צירופים חריגים על בסיס 104 ההגרלות האחרונות.")
 
 with st.expander("🎯 סעיף 5: תורת המשחקים (ללא שותפים)"):
-    st.write("**אסטרטגיית חלוקה:** שילוב מספרים מעל 31 כדי למנוע הצטלבות礼 עם תאריכי ימי הולדת.")
+    st.write("**אסטרטגיית חלוקה:** שילוב מספרים מעל 31 כדי למנוע הצטלבות עם תאריכי ימי הולדת.")
 
 st.divider()
 
@@ -248,106 +253,4 @@ if total_cases > 0:
     stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי_עזר", ascending=False).drop(columns=["סיכוי_עזר"])
     st.dataframe(stats_df.set_index("המספר החזק הבא"), use_container_width=True)
 else:
-    st.info(f"לא נמצאו מספיק נתונים בשנה האחרונה על מספרים שעלו אחרי המספר {chosen_strong}.")
-    
-st.divider()
-st.write("### הפקת טורים חכמים ומעקב היסטורי שנתי:")
-
-def check_ticket_performance(ticket_nums, ticket_strong, history):
-    summary = {"3 ניחושים": 0, "3 + חזק": 0, "4 ניחושים": 0, "4 + חזק": 0}
-    for draw in history:
-        match_count = len(set(ticket_nums) & set(draw['מספרים']))
-        strong_match = (ticket_strong == draw['חזק'])
-        
-        if match_count == 3 and not strong_match:
-            summary["3 ניחושים"] += 1
-        elif match_count == 3 and strong_match:
-            summary["3 + חזק"] += 1
-        elif match_count == 4 and not strong_match:
-            summary["4 ניחושים"] += 1
-        elif match_count == 4 and strong_match:
-            summary["4 + חזק"] += 1
-    return summary
-
-def process_and_render_sequential(tickets, t_strong, history):
-    # 1. הדפסת גוש 8 הטורים ברצף אחד אחרי השני בראש העמוד
-    st.write("### 🎫 8 הטורים המומלצים למילוי:")
-    for idx, t_nums in enumerate(tickets):
-        st.markdown(f"<div class='ticket-box'>טור {idx+1}: &nbsp;&nbsp;&nbsp;&nbsp; {', '.join(map(str, t_nums))} &nbsp;&nbsp; | &nbsp;&nbsp; חזק: {t_strong}</div>", unsafe_allow_html=True)
-    
-    st.divider()
-    
-    # 2. הדפסת מבנה עוקב: טור ומיד מתחתיו טבלת ההיסטוריה שלו
-    st.write("### 📊 פירוט ביצועים היסטוריים (לפי טורים):")
-    for idx, t_nums in enumerate(tickets):
-        perf = check_ticket_performance(t_nums, t_strong, history)
-        perf_data = {
-            "קטגוריית זכייה": ["3 ניחושים", "3 + נוסף", "4 ניחושים", "4 + נוסף"],
-            "כמות הצלחות בשנה האחרונה": [perf["3 ניחושים"], perf["3 + חזק"], perf["4 ניחושים"], perf["4 + חזק"]]
-        }
-        perf_df = pd.DataFrame(perf_data)
-        
-        st.write(f"#### 📋 טור {idx+1}:")
-        st.info(f"**צירוף:** {', '.join(map(str, t_nums))} | **חזק:** {t_strong}")
-        st.dataframe(perf_df.set_index("קטגוריית זכייה"), use_container_width=True)
-        st.write("---")
-
-selected_strong = random.randint(1, 7)
-
-# כפתור 1
-if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 12 החמים)"):
-    current_hot_12 = sorted(random.sample(top_20_pool, 12))
-    st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-    
-    st.write("**12 המספרים שננעלו להגרלה זו:**")
-    for idx, num in enumerate(current_hot_12):
-        st.write(f"**{idx+1})** {num}")
-    
-    st.write("---")
-    
-    all_tickets = []
-    for _ in range(8):
-        all_tickets.append(sorted(random.sample(current_hot_12, 6)))
-        
-    process_and_render_sequential(all_tickets, selected_strong, records_year)
-    st.balloons()
-
-# כפתור 2
-if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (מתוך 12 החמים)") :
-    current_hot_12 = sorted(random.sample(top_20_pool, 12))
-    st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-    
-    st.write("**12 המספרים שננעלו לאסטרטגיית מרווחים:**")
-    for idx, num in enumerate(current_hot_12):
-        st.write(f"**{idx+1})** {num}")
-    
-    st.write("---")
-    
-    all_tickets = []
-    for i in range(1, 9):
-        valid_table = False
-        attempts = 0
-        table = []
-        while not valid_table and attempts < 200:
-            table = random.sample(current_hot_12, 6)
-            table.sort()
-            
-            diffs = [table[j+1] - table[j] for j in range(5)]
-            cond_diff = any(d in [1, 2, 3] for d in diffs)
-            
-            evens = sum(1 for n in table if n % 2 == 0)
-            cond_balance = evens in [2, 3, 4]
-            
-            cond_high = any(n > 31 for n in table)
-            
-            if cond_diff and cond_balance and cond_high:
-                valid_table = True
-            attempts += 1
-            
-        if not valid_table:
-            table = sorted(random.sample(current_hot_12, 6))
-            
-        all_tickets.append(table)
-        
-    process_and_render_sequential(all_tickets, selected_strong, records_year)
-    st.balloons()
+    st.info(f"לא נמצאו מספיק נתונים בשנה האח
