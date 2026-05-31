@@ -6,7 +6,7 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - קלט מספרים אישי", layout="centered")
+st.set_page_config(page_title="לוטו חכם - טבלת זכיות גדולות", layout="centered")
 
 # קוד עיצוב בסיסי ויציב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
 st.markdown("""
@@ -82,35 +82,53 @@ def load_any_lotto_file():
         return None
         
     records = []
-    lines = content.split('\n')
+    # פיצול לפי בלוקים פוטנציאליים של הגרלות כדי לזהות פרסים כספיים בשורות הסמוכות
+    blocks = re.split(r'(?=תאריך|הגרלה)', content)
     
-    for line in lines:
-        if not line.strip():
+    for block in blocks:
+        lines = [ln.strip() for ln in block.split('\n') if ln.strip()]
+        if not lines:
             continue
             
-        tokens = re.findall(r'\b\d+\b', line)
-        if not tokens:
-            continue
-            
-        ints = [int(t) for t in tokens]
-        valid_lotto_nums = [n for n in ints if 1 <= n <= 37]
+        has_big_prize = False
+        prize_amount = "לא צוין"
         
-        if len(valid_lotto_nums) >= 7:
-            strong_candidate = valid_lotto_nums[-1]
-            if 1 <= strong_candidate <= 7:
-                strong_val = strong_candidate
-                lotto_series = valid_lotto_nums[-7:-1]
-            else:
-                strong_val = valid_lotto_nums[0]
-                lotto_series = valid_lotto_nums[1:7]
+        # חיפוש סכומי כסף או מילות מפתח של זכייה בתוך הבלוק
+        for line in lines:
+            if any(kw in line for kw in ["זכיות", "פרס", "סך הכל", "₪", "מיליון"]):
+                has_big_prize = True
+                # ניסיון לחלץ את סכום הפרס הכספי הגבוה ביותר שמופיע בשורה
+                money_find = re.findall(r'\b\d{1,3}(?:,\d{3})*(?:\s*₪|\s*מיליון)?\b', line)
+                if money_find:
+                    prize_amount = money_find[0]
+        
+        # חילוץ מספרים מהבלוק
+        for line in lines:
+            tokens = re.findall(r'\b\d+\b', line)
+            if not tokens:
+                continue
                 
-            if len(lotto_series) == 6 and 1 <= strong_val <= 7:
-                records.append({
-                    'מספרים': sorted(lotto_series),
-                    'חזק': strong_val,
-                    'פרס_גדול': True
-                })
-                
+            ints = [int(t) for t in tokens]
+            valid_lotto_nums = [n for n in ints if 1 <= n <= 37]
+            
+            if len(valid_lotto_nums) >= 7:
+                strong_candidate = valid_lotto_nums[-1]
+                if 1 <= strong_candidate <= 7:
+                    strong_val = strong_candidate
+                    lotto_series = valid_lotto_nums[-7:-1]
+                else:
+                    strong_val = valid_lotto_nums[0]
+                    lotto_series = valid_lotto_nums[1:7]
+                    
+                if len(lotto_series) == 6 and 1 <= strong_val <= 7:
+                    records.append({
+                        'מספרים': sorted(lotto_series),
+                        'חזק': strong_val,
+                        'פרס_גדול': has_big_prize,
+                        'סכום_זכייה': prize_amount
+                    })
+                    break
+                    
     return records
 
 all_historical_records = load_any_lotto_file()
@@ -118,11 +136,12 @@ all_historical_records = load_any_lotto_file()
 if not all_historical_records:
     all_historical_records = []
     random.seed(42)
-    for _ in range(104):
+    for i in range(104):
         all_historical_records.append({
             'מספרים': sorted(random.sample(range(1, 38), 6)),
             'חזק': random.randint(1, 7),
-            'פרס_גדול': random.choice([True, False])
+            'פרס_גדול': random.choice([True, False]),
+            'סכום_זכייה': f"{random.randint(5, 30)} מיליון ₪"
         })
     is_simulation = True
 else:
@@ -252,12 +271,10 @@ user_input_str = st.text_input(
     value=""
 )
 
-# פונקציית חילוץ וסינון לקלט של המשתמש
 def parse_user_numbers(input_str, backup_pool):
     found_nums = re.findall(r'\b\d+\b', input_str)
     parsed_ints = list(set([int(n) for n in found_nums if 1 <= int(n) <= 37]))
     
-    # הגנה: אם המשתמש לא הזין בדיוק 12, נשלים לו אוטומטית מהמספרים החמים כדי למנוע קריסה
     if len(parsed_ints) < 12:
         needed = 12 - len(parsed_ints)
         for num in backup_pool:
@@ -288,7 +305,6 @@ def check_ticket_performance(ticket_nums, ticket_strong, history):
     return summary
 
 def generate_filtered_tickets(pool_12):
-    # פונקציה שמייצרת טורים מתוחכמים ומפולטרים מתוך מאגר ה-12 שניתן לה
     tickets = []
     for _ in range(8):
         valid_table = False
@@ -317,6 +333,7 @@ def generate_filtered_tickets(pool_12):
 
 def process_and_render_sequential(tickets, t_strong, history):
     st.write("### 🎫 8 הטורים המומלצים למילוי:")
+    
     table_rows = []
     for idx, t_nums in enumerate(tickets):
         table_rows.append({
@@ -345,7 +362,7 @@ def process_and_render_sequential(tickets, t_strong, history):
 
 selected_strong = random.randint(1, 7)
 
-# כפתור 1 - מופעל על המספרים האישיים של המשתמש
+# כפתור 1
 if st.button("🎲 כפתור 1: הגרלת סדרות ומרווחים (מתוך 12 המספרים האישיים שלך)"):
     if not user_input_str.strip():
         st.warning("💡 לא הזנת מספרים בתיבה, המערכת השתמשה אוטומטית ב-12 מספרים מובילים מהקובץ.")
@@ -357,12 +374,11 @@ if st.button("🎲 כפתור 1: הגרלת סדרות ומרווחים (מתו�
     
     st.write("---")
     
-    # הפקת טורים מפולטרים ומאוזנים מתוך ה-12 של המשתמש
     all_tickets = generate_filtered_tickets(user_locked_12)
     process_and_render_sequential(all_tickets, selected_strong, records_year)
     st.balloons()
 
-# כפתור 2 - הגרלה אוטומטית רגילה מהקובץ
+# כפתור 2
 if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים אוטומטית (מתוך 12 החמים מהקובץ)"):
     current_hot_12 = sorted(random.sample(top_20_pool, 12))
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
@@ -376,3 +392,27 @@ if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים אוטו
     all_tickets = generate_filtered_tickets(current_hot_12)
     process_and_render_sequential(all_tickets, selected_strong, records_year)
     st.balloons()
+
+# === חלק 5: פונקציה חדשה - טבלת זכיות גדולות מהקובץ ===
+def display_big_wins_table(history):
+    st.divider()
+    st.subheader("🏆 היסטוריית הזכיות הגדולות שהיו השנה")
+    
+    big_wins_list = []
+    for idx, draw in enumerate(history):
+        if draw.get('פרס_גדול', False):
+            big_wins_list.append({
+                "מספר סידורי": f"הגרלה {idx+1}",
+                "סכום הזכייה": draw.get('סכום_זכייה', 'מיליונים ₪'),
+                "המספרים שזכו": ", ".join(map(str, draw['מספרים'])),
+                "המספר החזק (נוסף)": f"מספר {draw['חזק']}"
+            })
+            
+    if big_wins_list:
+        big_wins_df = pd.DataFrame(big_wins_list)
+        st.dataframe(big_wins_df.set_index("מספר סידורי"), use_container_width=True)
+    else:
+        st.info("לא נמצאו זכיות גדולות מתועדות בטווח הנתונים הנוכחי.")
+
+# הפעלת פונקציית טבלת הזכיות הגדולות בתחתית הדף
+display_big_wins_table(records_year)
