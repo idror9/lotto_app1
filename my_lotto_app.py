@@ -6,7 +6,7 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - שכיחות זהה ודומה", layout="centered")
+st.set_page_config(page_title="לוטו חכם - סבב חזקים מלא", layout="centered")
 
 # קוד עיצוב בסיסי ויציב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
 st.markdown("""
@@ -354,7 +354,7 @@ def process_and_render_sequential(tickets, t_strong, history):
         st.dataframe(perf_df.set_index("קטגוריית זכייה"), use_container_width=True)
         st.write("---")
 
-# פונקציית בחירה מבוססת שכיחות זהה או דומה מארכיון הזכיות הגדולות
+# פונקציית בחירה מבוססת שכיחות משוקללת מלאה לכלל המספרים בארכיון הזכיות הגדולות
 def select_from_big_wins(history, target_ids):
     matching_draws = [r for r in history if r.get('הגרלה') in target_ids]
     if not matching_draws:
@@ -369,28 +369,25 @@ def select_from_big_wins(history, target_ids):
     num_counts = Counter(wins_numbers)
     strong_counts_win = Counter(wins_strong)
     
-    # 1. בחירה דינמית למספר החזק לפי שכיחות זהה/דומה:
-    # אנחנו בוחרים שכיחות מטרה אקראית מתוך השכיחויות הקיימות (למשל שכיחות 7)
-    available_strong_counts = list(set(strong_counts_win.values()))
-    if available_strong_counts:
-        target_strong_count = random.choice(available_strong_counts)
-        # מוצאים את כל המספרים החזקים שיש להם את אותה השכיחות או שכיחות קרובה (הפרש של עד 1)
-        similar_strongs = [s for s, c in strong_counts_win.items() if abs(c - target_strong_count) <= 1]
-        chosen_strong = random.choice(similar_strongs) if similar_strongs else random.randint(1, 7)
-    else:
-        chosen_strong = random.randint(1, 7)
+    # 1. שדרוג בחירת המספר החזק: הגרלה משוקללת רחבה שכוללת את כל שבעת המספרים (1-7)
+    # אנו בונים בריכת סיכויים שבה לכל מספר יש ייצוג לפי כמות ההופעות שלו בארכיון הזכיות
+    strong_pool_weighted = []
+    for s_num in range(1, 8):
+        count = strong_counts_win.get(s_num, 0)
+        # גם אם מספר לא הופיע כלל בזכיות, ניתן לו משקל מינימלי של 1 כדי שיוכל להשתתף בסבב
+        weight = count if count > 0 else 1
+        strong_pool_weighted.extend([s_num] * weight)
         
-    # 2. בחירה דינמית ל-12 מספרים לפי שכיחות זהה/דומה:
-    # אנחנו בוחרים רמת שכיחות אקראית מתוך ארכיון המספרים הרגילים
+    chosen_strong = random.choice(strong_pool_weighted)
+        
+    # 2. הגרלה משוקללת רחבה ומגוונת עבור 12 המספרים הרגילים
     available_num_counts = list(set(num_counts.values()))
     chosen_12 = []
     
     if available_num_counts:
-        # ננסה לאסוף מספרים מרמות שכיחות מגוונות כדי למלא 12 מספרים שונים
         random.shuffle(available_num_counts)
         for target_count in available_num_counts:
-            # מוצאים את כל המספרים שיש להם שכיחות זהה או קרובה מאוד (הפרש של עד 1)
-            similar_nums = [n for n, c in num_counts.items() if abs(c - target_count) <= 1]
+            similar_nums = [n for n, c in num_counts.items() if abs(c - target_count) <= 2]
             random.shuffle(similar_nums)
             
             for n in similar_nums:
@@ -401,7 +398,6 @@ def select_from_big_wins(history, target_ids):
             if len(chosen_12) == 12:
                 break
 
-    # השלמה במידת הצורך
     if len(chosen_12) < 12:
         rem = [n for n in range(1, 38) if n not in chosen_12]
         chosen_12.extend(rem[:12 - len(chosen_12)])
@@ -441,11 +437,11 @@ if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים אוטו
     process_and_render_sequential(all_tickets, selected_strong, records_year)
     st.balloons()
 
-# כפתור 3 - בחירה מבוססת שכיחות זהה או דומה
+# כפתור 3 - בחירה מבוססת שכיחות משוקללת מלאה לכלל המספרים החזקים
 if st.button("🏆 כפתור 3: בחירה מתוך זכיות גדולות (8 טורים מצומצמים מארכיון הפרסים)"):
     big_win_12, big_win_strong = select_from_big_wins(records_year, target_draws)
     
-    st.subheader(f"נבחר מספר חזק בעל שכיחות תואמת/דומה: {big_win_strong}")
+    st.subheader(f"נבחר מספר חזק דינמי מארכיון הזכיות: {big_win_strong}")
     st.write("**12 המספרים שננעלו (חולצו לפי חוק שכיחות זהה או קרובה מארכיון הזכיות):**")
     for idx, num in enumerate(big_win_12):
         st.write(f"**{idx+1})** {num}")
