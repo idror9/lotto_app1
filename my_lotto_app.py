@@ -6,7 +6,7 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - תצוגה נקייה", layout="centered")
+st.set_page_config(page_title="לוטו חכם - קלט מספרים אישי", layout="centered")
 
 # קוד עיצוב בסיסי ויציב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
 st.markdown("""
@@ -244,6 +244,31 @@ else:
     st.info(f"לא נמצאו מספיק נתונים בשנה האחרונה על מספרים שעלו אחרי המספר {chosen_strong}.")
     
 st.divider()
+
+# === חלק 4: תיבת קלט עצמי ל-12 מספרים ===
+st.subheader("✍️ הזנת 12 מספרים אישיים לצמצום")
+user_input_str = st.text_input(
+    "הקש 12 מספרים מופרדים בפסיקים (לדוגמה: 4,7,12,15,19,22,24,27,29,31,33,35):",
+    value=""
+)
+
+# פונקציית חילוץ וסינון לקלט של המשתמש
+def parse_user_numbers(input_str, backup_pool):
+    found_nums = re.findall(r'\b\d+\b', input_str)
+    parsed_ints = list(set([int(n) for n in found_nums if 1 <= int(n) <= 37]))
+    
+    # הגנה: אם המשתמש לא הזין בדיוק 12, נשלים לו אוטומטית מהמספרים החמים כדי למנוע קריסה
+    if len(parsed_ints) < 12:
+        needed = 12 - len(parsed_ints)
+        for num in backup_pool:
+            if num not in parsed_ints:
+                parsed_ints.append(num)
+            if len(parsed_ints) == 12:
+                break
+    return sorted(parsed_ints[:12])
+
+user_locked_12 = parse_user_numbers(user_input_str, top_20_pool)
+
 st.write("### הפקת טורים חכמים ומעקב היסטורי שנתי:")
 
 def check_ticket_performance(ticket_nums, ticket_strong, history):
@@ -262,10 +287,36 @@ def check_ticket_performance(ticket_nums, ticket_strong, history):
             summary["4 + חזק"] += 1
     return summary
 
+def generate_filtered_tickets(pool_12):
+    # פונקציה שמייצרת טורים מתוחכמים ומפולטרים מתוך מאגר ה-12 שניתן לה
+    tickets = []
+    for _ in range(8):
+        valid_table = False
+        attempts = 0
+        table = []
+        while not valid_table and attempts < 200:
+            table = random.sample(pool_12, 6)
+            table.sort()
+            
+            diffs = [table[j+1] - table[j] for j in range(5)]
+            cond_diff = any(d in [1, 2, 3] for d in diffs)
+            
+            evens = sum(1 for n in table if n % 2 == 0)
+            cond_balance = evens in [2, 3, 4]
+            
+            cond_high = any(n > 31 for n in table)
+            
+            if cond_diff and cond_balance and cond_high:
+                valid_table = True
+            attempts += 1
+            
+        if not valid_table:
+            table = sorted(random.sample(pool_12, 6))
+        tickets.append(table)
+    return tickets
+
 def process_and_render_sequential(tickets, t_strong, history):
-    # 1. הצגת 8 הטורים בתוך טבלת נתונים נקייה ואחידה
     st.write("### 🎫 8 הטורים המומלצים למילוי:")
-    
     table_rows = []
     for idx, t_nums in enumerate(tickets):
         table_rows.append({
@@ -278,7 +329,6 @@ def process_and_render_sequential(tickets, t_strong, history):
     
     st.divider()
     
-    # 2. הדפסת מבנה עוקב: טור ומיד מתחתיו טבלת ההיסטוריה שלו
     st.write("### 📊 פירוט ביצועים היסטוריים (לפי טורים):")
     for idx, t_nums in enumerate(tickets):
         perf = check_ticket_performance(t_nums, t_strong, history)
@@ -295,60 +345,34 @@ def process_and_render_sequential(tickets, t_strong, history):
 
 selected_strong = random.randint(1, 7)
 
-# כפתור 1
-if st.button("🎲 כפתור 1: הגרלה דינמית רגילה (מתוך 12 החמים)"):
-    current_hot_12 = sorted(random.sample(top_20_pool, 12))
+# כפתור 1 - מופעל על המספרים האישיים של המשתמש
+if st.button("🎲 כפתור 1: הגרלת סדרות ומרווחים (מתוך 12 המספרים האישיים שלך)"):
+    if not user_input_str.strip():
+        st.warning("💡 לא הזנת מספרים בתיבה, המערכת השתמשה אוטומטית ב-12 מספרים מובילים מהקובץ.")
+        
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-    
-    st.write("**12 המספרים שננעלו להגרלה זו:**")
-    for idx, num in enumerate(current_hot_12):
+    st.write("**12 המספרים שננעלו לצמצום זה:**")
+    for idx, num in enumerate(user_locked_12):
         st.write(f"**{idx+1})** {num}")
     
     st.write("---")
     
-    all_tickets = []
-    for _ in range(8):
-        all_tickets.append(sorted(random.sample(current_hot_12, 6)))
-        
+    # הפקת טורים מפולטרים ומאוזנים מתוך ה-12 של המשתמש
+    all_tickets = generate_filtered_tickets(user_locked_12)
     process_and_render_sequential(all_tickets, selected_strong, records_year)
     st.balloons()
 
-# כפתור 2
-if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים (מתוך 12 החמים)") :
+# כפתור 2 - הגרלה אוטומטית רגילה מהקובץ
+if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים אוטומטית (מתוך 12 החמים מהקובץ)"):
     current_hot_12 = sorted(random.sample(top_20_pool, 12))
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
     
-    st.write("**12 המספרים שננעלו לאסטרטגיית מרווחים:**")
+    st.write("**12 המספרים שננעלו אוטומטית מהקובץ:**")
     for idx, num in enumerate(current_hot_12):
         st.write(f"**{idx+1})** {num}")
     
     st.write("---")
     
-    all_tickets = []
-    for i in range(1, 9):
-        valid_table = False
-        attempts = 0
-        table = []
-        while not valid_table and attempts < 200:
-            table = random.sample(current_hot_12, 6)
-            table.sort()
-            
-            diffs = [table[j+1] - table[j] for j in range(5)]
-            cond_diff = any(d in [1, 2, 3] for d in diffs)
-            
-            evens = sum(1 for n in table if n % 2 == 0)
-            cond_balance = evens in [2, 3, 4]
-            
-            cond_high = any(n > 31 for n in table)
-            
-            if cond_diff and cond_balance and cond_high:
-                valid_table = True
-            attempts += 1
-            
-        if not valid_table:
-            table = sorted(random.sample(current_hot_12, 6))
-            
-        all_tickets.append(table)
-        
+    all_tickets = generate_filtered_tickets(current_hot_12)
     process_and_render_sequential(all_tickets, selected_strong, records_year)
     st.balloons()
