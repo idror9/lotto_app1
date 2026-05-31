@@ -6,7 +6,7 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - טבלת זכיות גדולות", layout="centered")
+st.set_page_config(page_title="לוטו חכם - כפתור זכיות גדולות", layout="centered")
 
 # קוד עיצוב בסיסי ויציב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
 st.markdown("""
@@ -82,66 +82,61 @@ def load_any_lotto_file():
         return None
         
     records = []
-    # פיצול לפי בלוקים פוטנציאליים של הגרלות כדי לזהות פרסים כספיים בשורות הסמוכות
-    blocks = re.split(r'(?=תאריך|הגרלה)', content)
+    lines = content.split('\n')
     
-    for block in blocks:
-        lines = [ln.strip() for ln in block.split('\n') if ln.strip()]
-        if not lines:
+    for line in lines:
+        if not line.strip():
             continue
             
-        has_big_prize = False
-        prize_amount = "לא צוין"
-        
-        # חיפוש סכומי כסף או מילות מפתח של זכייה בתוך הבלוק
-        for line in lines:
-            if any(kw in line for kw in ["זכיות", "פרס", "סך הכל", "₪", "מיליון"]):
-                has_big_prize = True
-                # ניסיון לחלץ את סכום הפרס הכספי הגבוה ביותר שמופיע בשורה
-                money_find = re.findall(r'\b\d{1,3}(?:,\d{3})*(?:\s*₪|\s*מיליון)?\b', line)
-                if money_find:
-                    prize_amount = money_find[0]
-        
-        # חילוץ מספרים מהבלוק
-        for line in lines:
-            tokens = re.findall(r'\b\d+\b', line)
-            if not tokens:
-                continue
-                
-            ints = [int(t) for t in tokens]
-            valid_lotto_nums = [n for n in ints if 1 <= n <= 37]
+        tokens = re.findall(r'\b\d+\b', line)
+        if not tokens:
+            continue
             
-            if len(valid_lotto_nums) >= 7:
-                strong_candidate = valid_lotto_nums[-1]
-                if 1 <= strong_candidate <= 7:
-                    strong_val = strong_candidate
-                    lotto_series = valid_lotto_nums[-7:-1]
-                else:
-                    strong_val = valid_lotto_nums[0]
-                    lotto_series = valid_lotto_nums[1:7]
-                    
-                if len(lotto_series) == 6 and 1 <= strong_val <= 7:
-                    records.append({
-                        'מספרים': sorted(lotto_series),
-                        'חזק': strong_val,
-                        'פרס_גדול': has_big_prize,
-                        'סכום_זכייה': prize_amount
-                    })
+        ints = [int(t) for t in tokens]
+        valid_lotto_nums = [n for n in ints if 1 <= n <= 37]
+        
+        if len(valid_lotto_nums) >= 7:
+            # מציאת מספר ההגרלה מתוך השורה (המספר הראשון הגבוה בדרך כלל)
+            draw_id = None
+            for token in ints:
+                if 3000 <= token <= 4500:
+                    draw_id = token
                     break
-                    
+            
+            strong_candidate = valid_lotto_nums[-1]
+            if 1 <= strong_candidate <= 7:
+                strong_val = strong_candidate
+                lotto_series = valid_lotto_nums[-7:-1]
+            else:
+                strong_val = valid_lotto_nums[0]
+                lotto_series = valid_lotto_nums[1:7]
+                
+            if len(lotto_series) == 6 and 1 <= strong_val <= 7:
+                records.append({
+                    'הגרלה': draw_id,
+                    'מספרים': sorted(lotto_series),
+                    'חזק': strong_val
+                })
+                
     return records
 
 all_historical_records = load_any_lotto_file()
+
+# הגדרת רשימת ההגרלות הזוכות שסיפקת
+target_draws = [
+    3930, 3929, 3928, 3917, 3907, 3903,
+    3898, 3893, 3884, 3878, 3873, 3871, 3865, 3859, 3855, 3852, 3845, 3841, 3837, 3833, 3827, 3825, 3822, 3817
+]
 
 if not all_historical_records:
     all_historical_records = []
     random.seed(42)
     for i in range(104):
+        mock_id = 3930 - i
         all_historical_records.append({
+            'הגרלה': mock_id,
             'מספרים': sorted(random.sample(range(1, 38), 6)),
-            'חזק': random.randint(1, 7),
-            'פרס_גדול': random.choice([True, False]),
-            'סכום_זכייה': f"{random.randint(5, 30)} מיליון ₪"
+            'חזק': random.randint(1, 7)
         })
     is_simulation = True
 else:
@@ -360,6 +355,33 @@ def process_and_render_sequential(tickets, t_strong, history):
         st.dataframe(perf_df.set_index("קטגוריית זכייה"), use_container_width=True)
         st.write("---")
 
+# פונקציית בחירה וניתוח מתוך הזכיות הגדולות שציינת
+def select_from_big_wins(history, target_ids):
+    matching_draws = [r for r in history if r.get('הגרלה') in target_ids]
+    
+    # הגנה: אם אין קובץ אמת, ניקח את כל ההיסטוריה הזמינה לסימולציה
+    if not matching_draws:
+        matching_draws = history
+        
+    wins_numbers = []
+    wins_strong = []
+    for d in matching_draws:
+        wins_numbers.extend(d['מספרים'])
+        wins_strong.append(d['חזק'])
+        
+    # חילוץ 12 המספרים השכיחים ביותר מתוך הגרלות הזכייה הללו
+    num_counts = Counter(wins_numbers)
+    chosen_12 = [n for n, c in num_counts.most_common(12)]
+    if len(chosen_12) < 12:
+        rem = [n for n in range(1, 38) if n not in chosen_12]
+        chosen_12.extend(rem[:12 - len(chosen_12)])
+        
+    # חילוץ המספר החזק השכיח ביותר מתוך הגרלות הזכייה הללו
+    strong_counts_win = Counter(wins_strong)
+    chosen_strong = strong_counts_win.most_common(1)[0][0] if strong_counts_win else random.randint(1, 7)
+    
+    return sorted(chosen_12), chosen_strong
+
 selected_strong = random.randint(1, 7)
 
 # כפתור 1
@@ -393,26 +415,40 @@ if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים אוטו
     process_and_render_sequential(all_tickets, selected_strong, records_year)
     st.balloons()
 
-# === חלק 5: פונקציה חדשה - טבלת זכיות גדולות מהקובץ ===
-def display_big_wins_table(history):
-    st.divider()
-    st.subheader("🏆 היסטוריית הזכיות הגדולות שהיו השנה")
+# כפתור 3 החדש - בחירה מתוך זכיות גדולות
+if st.button("🏆 כפתור 3: בחירה מתוך זכיות גדולות (8 טורים מצומצמים מארכיון הפרסים)"):
+    # הפעלת הפונקציה הייעודית לניתוח הגרלות הזכייה
+    big_win_12, big_win_strong = select_from_big_wins(records_year, target_draws)
     
-    big_wins_list = []
-    for idx, draw in enumerate(history):
-        if draw.get('פרס_גדול', False):
-            big_wins_list.append({
-                "מספר סידורי": f"הגרלה {idx+1}",
-                "סכום הזכייה": draw.get('סכום_זכייה', 'מיליונים ₪'),
-                "המספרים שזכו": ", ".join(map(str, draw['מספרים'])),
-                "המספר החזק (נוסף)": f"מספר {draw['חזק']}"
-            })
-            
-    if big_wins_list:
-        big_wins_df = pd.DataFrame(big_wins_list)
-        st.dataframe(big_wins_df.set_index("מספר סידורי"), use_container_width=True)
-    else:
-        st.info("לא נמצאו זכיות גדולות מתועדות בטווח הנתונים הנוכחי.")
+    st.subheader(f"נבחר מספר חזק שכיח מארכיון הזכיות: {big_win_strong}")
+    st.write("**12 המספרים השכיחים ביותר שחולצו מתוך הגרלות הזכייה הגדולות של השנה:**")
+    for idx, num in enumerate(big_win_12):
+        st.write(f"**{idx+1})** {num}")
+        
+    st.write("---")
+    
+    # הפקת 8 הטורים המצומצמים והמפולטרים מתוך ה-12 של הזכיות הגדולות
+    all_tickets = generate_filtered_tickets(big_win_12)
+    process_and_render_sequential(all_tickets, big_win_strong, records_year)
+    st.balloons()
 
-# הפעלת פונקציית טבלת הזכיות הגדולות בתחתית הדף
-display_big_wins_table(records_year)
+# === חלק 5: הצגת ארכיון הצירופים הזוכים מהקובץ ===
+def display_historical_archive_table(history):
+    st.divider()
+    st.subheader("🏆 ארכיון הצירופים שעלו בגורל בשנה האחרונה")
+    
+    draws_list = []
+    for idx, draw in enumerate(history):
+        draws_list.append({
+            "מספר סידורי": f"הגרלה {draw.get('הגרלה', idx+1)}",
+            "6 המספרים שעלו": ", ".join(map(str, draw['מספרים'])),
+            "המספר החזק (נוסף)": f"מספר {draw['חזק']}"
+        })
+            
+    if draws_list:
+        archive_df = pd.DataFrame(draws_list)
+        st.dataframe(archive_df.set_index("מספר סידורי"), use_container_width=True)
+    else:
+        st.info("לא נמצאו נתוני הגרלות בקובץ ה-CSV.")
+
+display_historical_archive_table(records_year)
