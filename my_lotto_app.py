@@ -384,7 +384,7 @@ if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים אוטו
     process_and_render_sequential(all_tickets, selected_strong, records_extended)
     st.balloons()
 
-# === פונקציית עזר לחילוץ מספרים חמים לטובת כפתור 3 ===
+# פונקציית עזר לחילוץ מספרים חמים לטובת כפתור 3
 def get_recent_10_pool(history):
     recent_10 = history[-10:] if len(history) >= 10 else history
     nums = []
@@ -394,16 +394,14 @@ def get_recent_10_pool(history):
 
 recent_magnetic_pool = get_recent_10_pool(records_extended)
 
-# כפתור 3 החדש - הפקה חכמה של 12 מספרים חזותיים
+# כפתור 3 החדש - הפקה חכמה של 12 מספרים חזותיים עם כיתוב שחור קשיח ומובהק
 if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי תופעות"):
-    # הרכבת ה-12: 4 מהגל האחרון, 4 מהשכיחות השנתית, ו-4 לאיזון סטטיסטי
     layer_1 = recent_magnetic_pool[:4]
     layer_2 = [n for n in top_20_pool if n not in layer_1][:4]
     layer_3 = [n for n in cold_numbers if n not in layer_1 and n not in layer_2][:4]
     
     generated_12 = sorted(list(set(layer_1 + layer_2 + layer_3)))
     
-    # השלמה בטוחה ל-12 אם יש חפיפות
     if len(generated_12) < 12:
         for num in top_20_pool:
             if num not in generated_12: generated_12.append(num)
@@ -411,16 +409,17 @@ if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי 
     generated_12.sort()
     
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
+    
+    # שינוי לעיצוב קשיח עם גופן שחור מובהק (color: #000000 !important) למניעת היעלמות טקסט
     st.markdown(f"""
-    <div style="background-color: #fff3cd; padding: 12px; border-right: 5px solid #ffc107; font-weight: bold; margin-bottom: 15px;">
-        🔥 המערכת בנתה עבורך בריכת 12 מספרים אופטימלית המשלבת מומנטום קצר טווח, יציבות של 6 שנים ואיזון סטטיסטי:<br>
-        🎯 12 המספרים שנבחרו: {', '.join(map(str, generated_12))}
+    <div style="background-color: #fff3cd; padding: 15px; border-right: 6px solid #ffc107; font-weight: bold; margin-bottom: 15px; border-radius: 5px; color: #000000 !important;">
+        <span style="color: #000000 !important; font-size: 1.05em;">🔥 המערכת בנתה עבורך בריכת 12 מספרים אופטימלית המשלבת מומנטום קצר טווח, יציבות של 6 שנים ואיזון סטטיסטי:</span><br><br>
+        <span style="color: #000000 !important; font-size: 1.15em;">🎯 12 המספרים שנבחרו: {', '.join(map(str, generated_12))}</span>
     </div>
     """, unsafe_allow_html=True)
     
     st.write("---")
     
-    # הפעלת הסינון הקומבינטורי והפקת 8 הטורים
     all_tickets = generate_filtered_tickets(generated_12)
     process_and_render_sequential(all_tickets, selected_strong, records_extended)
     st.balloons()
@@ -542,6 +541,4 @@ def analyze_recent_10_phenomena(history):
     else:
         st.info("✔️ **פיזור מספרים תקין:** לא זוהו מספרים רגילים שחזרו על עצמם בצורה חריגה ב-10 האחרונות.")
         
-    st.success(f"🎯 **המספר החזק השולט בגל הנוכחי:** מספר **{top_strong}** (עלה {top_strong_count} פעמים בחלון הזמן הזה).")
-    st.info(f"📊 **מדד הדחיסות בגל האחרון:** זוהו {consecutive_count} מקרים של מספרים עוקבים צמודים שרצו יחד.")
-    st.writ
+    st.success(f"🎯 **המספר החזק השולט בגל הנוכחי:** מספר **{top_strong}** (עלה {top_strong_count} פע
