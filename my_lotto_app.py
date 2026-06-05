@@ -6,7 +6,7 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - מנוע חיזוי ותופעות", layout="centered")
+st.set_page_config(page_title="לוטו חכם - 3 כפתורי אסטרטגיה", layout="centered")
 
 # קוד עיצוב בסיסי ויציב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
 st.markdown("""
@@ -384,6 +384,47 @@ if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים אוטו
     process_and_render_sequential(all_tickets, selected_strong, records_extended)
     st.balloons()
 
+# === פונקציית עזר לחילוץ מספרים חמים לטובת כפתור 3 ===
+def get_recent_10_pool(history):
+    recent_10 = history[-10:] if len(history) >= 10 else history
+    nums = []
+    for d in recent_10: nums.extend(d['מספרים'])
+    counts_10 = Counter(nums)
+    return [n for n, c in counts_10.most_common(6)]
+
+recent_magnetic_pool = get_recent_10_pool(records_extended)
+
+# כפתור 3 החדש - הפקה חכמה של 12 מספרים חזותיים
+if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי תופעות"):
+    # הרכבת ה-12: 4 מהגל האחרון, 4 מהשכיחות השנתית, ו-4 לאיזון סטטיסטי
+    layer_1 = recent_magnetic_pool[:4]
+    layer_2 = [n for n in top_20_pool if n not in layer_1][:4]
+    layer_3 = [n for n in cold_numbers if n not in layer_1 and n not in layer_2][:4]
+    
+    generated_12 = sorted(list(set(layer_1 + layer_2 + layer_3)))
+    
+    # השלמה בטוחה ל-12 אם יש חפיפות
+    if len(generated_12) < 12:
+        for num in top_20_pool:
+            if num not in generated_12: generated_12.append(num)
+            if len(generated_12) == 12: break
+    generated_12.sort()
+    
+    st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
+    st.markdown(f"""
+    <div style="background-color: #fff3cd; padding: 12px; border-right: 5px solid #ffc107; font-weight: bold; margin-bottom: 15px;">
+        🔥 המערכת בנתה עבורך בריכת 12 מספרים אופטימלית המשלבת מומנטום קצר טווח, יציבות של 6 שנים ואיזון סטטיסטי:<br>
+        🎯 12 המספרים שנבחרו: {', '.join(map(str, generated_12))}
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.write("---")
+    
+    # הפעלת הסינון הקומבינטורי והפקת 8 הטורים
+    all_tickets = generate_filtered_tickets(generated_12)
+    process_and_render_sequential(all_tickets, selected_strong, records_extended)
+    st.balloons()
+
 # === חלק 5: ארכיון ההגרלות המלא ל-6 שנים ===
 def display_historical_archive_table(history):
     st.divider()
@@ -503,40 +544,4 @@ def analyze_recent_10_phenomena(history):
         
     st.success(f"🎯 **המספר החזק השולט בגל הנוכחי:** מספר **{top_strong}** (עלה {top_strong_count} פעמים בחלון הזמן הזה).")
     st.info(f"📊 **מדד הדחיסות בגל האחרון:** זוהו {consecutive_count} מקרים של מספרים עוקבים צמודים שרצו יחד.")
-    st.write(f"⚖️ **איזון זוגי/אי-זוגי נוכחי:** הגל האחרון מורכב מ-{even_pct:.1f}% מספרים זוגיים.")
-    
-    return magnetic_nums
-
-recent_magnetic = analyze_recent_10_phenomena(records_extended)
-
-# === חלק 8: מנוע המלצות חכמות מבוסס תופעות שבועיות ===
-def generate_lotto_predictions(history, magnetic_pool):
-    st.divider()
-    st.subheader("🔮 מנוע המלצות אוטומטי המבוסס על תופעות שזוהו")
-    
-    if len(history) < 2:
-        st.info("אין מספיק נתונים לחיזוי.")
-        return
-        
-    last_draw = history[-1]
-    prev_draw = history[-2]
-    
-    st.write("### 🔎 ניתוח התנהגות שבוע אחרי שבוע (Week-by-Week Breakdown):")
-    
-    # ---------------------------------------------
-    # תופעה 1: ניתוח המגמה השבועית של המספר החזק
-    # ---------------------------------------------
-    suggested_strongs = []
-    strong_reason = ""
-    
-    if last_draw['חזק'] == prev_draw['חזק'] - 1 or (prev_draw['חזק'] == 1 and last_draw['חזק'] == 7):
-        next_logical = last_draw['חזק'] - 1 if last_draw['חזק'] > 1 else 7
-        backup_val = 7 if next_logical == 1 else next_logical + 1
-        suggested_strongs = [next_logical, backup_val]
-        strong_reason = f"המערכת זיהתה רצף יורד פעיל בשבועות האחרונים ({prev_draw['חזק']} -> {last_draw['חזק']}). לפי חוקיות זו, היעד הבא הוא **{next_logical}**."
-    elif last_draw['חזק'] == prev_draw['חזק'] + 1 or (prev_draw['חזק'] == 7 and last_draw['חזק'] == 1):
-        next_logical = last_draw['חזק'] + 1 if last_draw['חזק'] < 7 else 1
-        suggested_strongs = [next_logical]
-        strong_reason = f"המערכת זיהתה רצף עולה פעיל בשבועות האחרונים ({prev_draw['חזק']} -> {last_draw['חזק']}). לפי חוקיות זו, היעד הבא הוא **{next_logical}**."
-    else:
-        backup_logical = last_dra
+    st.writ
