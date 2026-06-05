@@ -5,10 +5,11 @@ import random
 import os
 import re
 
-# הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - גרסה יציבה", layout="centered")
+st.set_page_config(
+    page_title="לוטו חכם - גרסה יציבה", 
+    layout="centered"
+)
 
-# קוד עיצוב בסיסי ויציב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] {
@@ -27,7 +28,8 @@ st.markdown("""
         margin-bottom: 10px;
     }
     
-    div[data-testid="stMarkdownContainer"] p, h1, h2, h3, h4, h5, h6 {
+    div[data-testid="stMarkdownContainer"] p, 
+    h1, h2, h3, h4, h5, h6 {
         text-align: right;
         direction: RTL;
     }
@@ -40,13 +42,11 @@ st.markdown("""
         text-align: right;
     }
     
-    /* יישור טבלאות נתונים לימין בצורה טבעית */
     div[data-testid="stDataFrame"] {
         direction: RTL;
         text-align: right;
     }
     
-    /* עיצוב תיבת ההמלצות החמות */
     .prediction-box {
         background-color: #f0f7ff;
         border: 2px dashed #1e88e5;
@@ -60,7 +60,10 @@ st.markdown("""
 
 def load_any_lotto_file():
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    possible_names = ['lotto2026.csv', 'Lotto2026.csv', 'lotto2026.CSV', 'Lotto2026.CSV']
+    possible_names = [
+        'lotto2026.csv', 'Lotto2026.csv', 
+        'lotto2026.CSV', 'Lotto2026.CSV'
+    ]
     file_path = None
     
     for name in possible_names:
@@ -79,7 +82,11 @@ def load_any_lotto_file():
         return None
 
     content = ""
-    for enc in ['utf-8-sig', 'windows-1255', 'utf-8', 'ansi', 'iso-8859-8']:
+    encodings = [
+        'utf-8-sig', 'windows-1255', 
+        'utf-8', 'ansi', 'iso-8859-8'
+    ]
+    for enc in encodings:
         try:
             with open(file_path, 'r', encoding=enc, errors='ignore') as f:
                 content = f.read()
@@ -123,7 +130,6 @@ def load_any_lotto_file():
     return records
 
 all_historical_records = load_any_lotto_file()
-
 TOTAL_6_YEARS_DRAWS = 624
 
 if not all_historical_records:
@@ -162,18 +168,21 @@ cold_numbers = [n for n in range(1, 38) if n not in top_20_pool][:7]
 
 st.title("🎰 לוטו חכם: מנוע אנליזה מורחב (6 שנים)")
 if is_simulation:
-    st.warning("⚠️ המערכת קוראת את הקובץ בגיטהאב אך מבנהו לא זוהה. מציג נתוני סימולציה זמניים של 6 שנים.")
+    st.warning("⚠️ מציג נתוני סימולציה זמניים של 6 שנים.")
 else:
-    st.success(f"✔️ החיבור הצליח! מנתח {len(records_extended)} הגרלות אמת מתוך קובץ מפעל הפיס שלך (חלון זמן של 6 שנים).")
+    msg = f"✔️ החיבור הצליח! מנתח {len(records_extended)} הגרלות אמת."
+    st.success(msg)
 
-# === חלק 1: ניתוח פיננסי ===
 st.subheader("💰 ניתוח פיננסי: מספרים חזקים (6 שנים אחרונות)")
 
 financial_data = []
 for strong_num in range(1, 8):
     matching_draws = [r for r in records_extended if r.get('חזק') == strong_num]
     total_draws_for_num = len(matching_draws)
-    final_power = (strong_counts.get(strong_num, 0) / len(records_extended) * 100) if records_extended else 0
+    if records_extended:
+        final_power = strong_counts.get(strong_num, 0) / len(records_extended) * 100
+    else:
+        final_power = 0
     
     financial_data.append({
         "מספר חזק": f"מספר {strong_num}",
@@ -187,13 +196,15 @@ st.dataframe(financial_df.set_index("מספר חזק"), use_container_width=True
 
 st.divider()
 
-# === חלק 2: לוח תחזיות ===
 st.header("🔮 תמונת המצב והתחזית הטכנולוגית (נתוני 6 שנים)")
 
 with st.expander("📊 סעיף 1: ניתוח סטטיסטי מורחב (חמים מול קרים)"):
-    st.write(f"**המספרים החמים ביותר ב-6 השנים האחרונות:** {', '.join(map(str, top_20_pool[:6]))}")
-    st.write(f"**המספרים הקרים ביותר ב-6 השנים האחרונות:** {', '.join(map(str, cold_numbers))}")
-    st.write(f"**המספר החזק השכיח ביותר ב-6 השנים האחרונות:** מספר {strong_counts.most_common(1)[0][0] if strong_counts else 'אין'}")
+    h_str = ", ".join(map(str, top_20_pool[:6]))
+    c_str = ", ".join(map(str, cold_numbers))
+    st.write(f"**המספרים החמים ביותר ב-6 השנים האחרונות:** {h_str}")
+    st.write(f"**המספרים הקרים ביותר ב-6 השנים האחרונות:** {c_str}")
+    top_s_val = strong_counts.most_common(1)[0][0] if strong_counts else 'אין'
+    st.write(f"**המספר החזק השכיח ביותר ב-6 השנים האחרונות:** מספר {top_s_val}")
 
 with st.expander("📈 סעיף 2: אסטרטגיית מרווחים ואיזון"):
     even_half = 0
@@ -210,7 +221,8 @@ with st.expander("⚡ סעיף 3: ניתוח פיזיקלי (סטיית מכונ
     for r in recent_draws: recent_numbers.extend(r['מספרים'])
     recent_counts = Counter(recent_numbers)
     wave_numbers = [n for n, c in recent_counts.most_common(3)]
-    st.write(f"**מספרים במומנטום חם (10 הגרלות אחרונות):** {', '.join(map(str, wave_numbers))}")
+    w_str = ", ".join(map(str, wave_numbers))
+    st.write(f"**מספרים במומנטום חם (10 הגרלות אחרונות):** {w_str}")
 
 with st.expander("🎲 סעיף 4: סימולציית מונטה קרלו"):
     st.write(f"**מנוע סימולציה פעיל:** מסנן צירופים חריגים על בסיס {len(records_extended)} ההגרלות האחרונות.")
@@ -220,9 +232,12 @@ with st.expander("🎯 סעיף 5: תורת המשחקים (ללא שותפים)
 
 st.divider()
 
-# === חלק 3: בדיקת סיכוי למספר החזק הבא ===
 st.subheader("🔮 בדיקת סיכוי למספר החזק הבא (ניתוח עומק 6 שנים)")
-chosen_strong = st.selectbox("בחר את המספר החזק שיצא בהגרלה האחרונה:", options=list(range(1, 8)), index=5)
+chosen_strong = st.selectbox(
+    "בחר את המספר החזק שיצא בהגרלה האחרונה:", 
+    options=list(range(1, 8)), 
+    index=5
+)
 
 next_strong_list = []
 for i in range(len(records_extended) - 1):
@@ -237,7 +252,7 @@ counts_after_chosen = Counter(next_strong_list)
 st.write(f"המספר **{chosen_strong}** יצא {total_cases} פעמים לאורך 6 השנים האחרונות בקובץ.")
 
 if total_cases > 0:
-    st.write("📊 **ההסתברות למספר החזק הבא (ממוין מהסיכוי הגבוה לנמוך):**")
+    st.write("📊 **ההסתברות למספר החזק הבא:**")
     stats_data = []
     for i in range(1, 8):
         times = counts_after_chosen.get(i, 0)
@@ -251,14 +266,13 @@ if total_cases > 0:
     stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי_עזר", ascending=False).drop(columns=["סיכוי_עזר"])
     st.dataframe(stats_df.set_index("המספר החזק הבא"), use_container_width=True)
 else:
-    st.info(f"לא נמצאו מספיק נתונים היסטוריים על מספרים שעלו אחרי המספר {chosen_strong}.")
+    st.info(f"לא נמצאו מספיק נתונים היסטוריים.")
     
 st.divider()
 
-# === חלק 4: תיבת קלט עצמי ל-12 מספרים ===
 st.subheader("✍️ הזנת 12 מספרים אישיים לצמצום")
 user_input_str = st.text_input(
-    "הקש 12 מספרים מופרדים בפסיקים (לדוגמה: 4,7,12,15,19,22,24,27,29,31,33,35):",
+    "הקש 12 מספרים מופרדים בפסיקים:",
     value=""
 )
 
@@ -342,7 +356,10 @@ def process_and_render_sequential(tickets, t_strong, history):
         perf = check_ticket_performance(t_nums, t_strong, history)
         perf_data = {
             "קטגוריית זכייה": ["3 ניחושים", "3 + נוסף", "4 ניחושים", "4 + נוסף"],
-            "כמות הצלחות ב-6 שנים": [perf["3 ניחושים"], perf["3 + חזק"], perf["4 ניחושים"], perf["4 + חזק"]]
+            "כמות הצלחות ב-6 שנים": [
+                perf["3 ניחושים"], perf["3 + חזק"], 
+                perf["4 ניחושים"], perf["4 + חזק"]
+            ]
         }
         perf_df = pd.DataFrame(perf_data)
         
@@ -353,38 +370,30 @@ def process_and_render_sequential(tickets, t_strong, history):
 
 selected_strong = random.randint(1, 7)
 
-# כפתור 1
 if st.button("🎲 כפתור 1: הגרלת סדרות ומרווחים (מתוך 12 המספרים האישיים שלך)"):
     if not user_input_str.strip():
-        st.warning("💡 לא הזנת מספרים בתיבה, המערכת השתמשה אוטומטית ב-12 מספרים מובילים מהקובץ.")
+        st.warning("💡 לא הזנת מספרים בתיבה, משתמש במאגר ברירת המחדל.")
         
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
     st.write("**12 המספרים שננעלו לצמצום זה:**")
     for idx, num in enumerate(user_locked_12):
         st.write(f"**{idx+1})** {num}")
-    
     st.write("---")
-    
     all_tickets = generate_filtered_tickets(user_locked_12)
     process_and_render_sequential(all_tickets, selected_strong, records_extended)
     st.balloons()
 
-# כפתור 2
 if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים אוטומטית (מתוך 12 החמים מהקובץ)"):
     current_hot_12 = sorted(random.sample(top_20_pool, 12))
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-    
     st.write("**12 המספרים שננעלו אוטומטית מהקובץ:**")
     for idx, num in enumerate(current_hot_12):
         st.write(f"**{idx+1})** {num}")
-    
     st.write("---")
-    
     all_tickets = generate_filtered_tickets(current_hot_12)
     process_and_render_sequential(all_tickets, selected_strong, records_extended)
     st.balloons()
 
-# פונקציית עזר לחילוץ מספרים חמים לטובת כפתור 3
 def get_recent_10_pool(history):
     recent_10 = history[-10:] if len(history) >= 10 else history
     nums = []
@@ -394,7 +403,6 @@ def get_recent_10_pool(history):
 
 recent_magnetic_pool = get_recent_10_pool(records_extended)
 
-# כפתור 3 - הפקה חכמה של 12 מספרים חזותיים עם כיתוב שחור קשיח ומובהק
 if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי תופעות"):
     layer_1 = recent_magnetic_pool[:4]
     layer_2 = [n for n in top_20_pool if n not in layer_1][:4]
@@ -410,20 +418,19 @@ if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי 
     
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
     
+    msg_box = f"🎯 12 המספרים שנבחרו: {', '.join(map(str, generated_12))}"
     st.markdown(f"""
     <div style="background-color: #fff3cd; padding: 15px; border-right: 6px solid #ffc107; font-weight: bold; margin-bottom: 15px; border-radius: 5px; color: #000000 !important;">
-        <span style="color: #000000 !important; font-size: 1.05em;">🔥 המערכת בנתה בריכת 12 מספרים אופטימלית (מומנטום, יציבות ואיזון):</span><br><br>
-        <span style="color: #000000 !important; font-size: 1.15em;">🎯 12 המספרים שנבחרו: {', '.join(map(str, generated_12))}</span>
+        <span style="color: #000000 !important; font-size: 1.05em;">🔥 בריכת 12 מספרים אופטימלית (מוมנטום, יציבות ואיזון):</span><br><br>
+        <span style="color: #000000 !important; font-size: 1.15em;">{msg_box}</span>
     </div>
     """, unsafe_allow_html=True)
     
     st.write("---")
-    
     all_tickets = generate_filtered_tickets(generated_12)
     process_and_render_sequential(all_tickets, selected_strong, records_extended)
     st.balloons()
 
-# === חלק 5: ארכיון ההגרלות המלא ל-6 שנים ===
 def display_historical_archive_table(history):
     st.divider()
     st.subheader("🏆 ארכיון הצירופים שעלו בגורל ב-6 השנים האחרונות")
@@ -444,7 +451,6 @@ def display_historical_archive_table(history):
 
 display_historical_archive_table(records_extended)
 
-# === חלק 6: מנוע מחקר ואיתור רצפים יורדים של המספר החזק ===
 def analyze_strong_sequences(history):
     st.divider()
     st.subheader("🔍 מחקר רצפים: מתי חוזר רצף מספר חזק יורד?")
@@ -502,7 +508,6 @@ def analyze_strong_sequences(history):
 
 analyze_strong_sequences(records_extended)
 
-# === חלק 7: ניתוח תופעות ב-10 הגרלות אחרונות ===
 def analyze_recent_10_phenomena(history):
     st.divider()
     st.subheader("⚡ מנוע סריקה מהירה: תופעות ב-10 ההגרלות האחרונות")
@@ -536,10 +541,34 @@ def analyze_recent_10_phenomena(history):
     
     st.write("📊 **ממצאים חמים מתוך גל 10 ההגרלות האחרון:**")
     if magnetic_nums:
-        st.warning(f"🔥 **מספרים מגנטיים במומנטום קיצוני:** {', '.join(map(str, magnetic_nums))} (עלו לפחות 3 פעמים ב-10 האחרונות).")
+        m_nums_str = ", ".join(map(str, magnetic_nums))
+        st.warning(f"🔥 **מספרים מגנטיים במומנטום קיצוני:** {m_nums_str}")
     else:
-        st.info("✔️ **פיזור מספרים תקין:** לא זוהו מספרים שחזרו בצורה חריגה ב-10 האחרונות.")
+        st.info("✔️ **פיזור מספרים תקין.**")
         
-    # פישוט וקיצור המחרוזת הזו למניעת שגיאות חיתוך
-    st.success(f"🎯 **המספר החזק השולט בגל הנוכחי:** מספר **{top_strong}** (עלה {top_strong_count} פעמים).")
-    st.info(f"📊 **מדד הדחיסות בגל האחרון:** זוהו {consecutive_count} מקרים של מספרים עוקבים צ
+    st.success(f"🎯 **המספר החזק השולט בגל הנוכחי:** מספר **{top_strong}** ({top_strong_count} פעמים).")
+    st.info(f"📊 **מדד הדחיסות בגל האחרון:** זוהו {consecutive_count} מקרים של עוקבים.")
+    st.write(f"⚖️ **איזון זוגי/אי-זוגי נוכחי:** מורכב מ-{even_pct:.1f}% מספרים זוגיים.")
+    
+    return magnetic_nums
+
+recent_magnetic = analyze_recent_10_phenomena(records_extended)
+
+def generate_lotto_predictions(history, magnetic_pool):
+    st.divider()
+    st.subheader("🔮 מנוע המלצות אוטומטי המבוסס על תופעות שזוהו")
+    
+    if len(history) < 2:
+        st.info("אין מספיק נתונים לחיזוי.")
+        return
+        
+    last_draw = history[-1]
+    prev_draw = history[-2]
+    
+    st.write("### 🔎 ניתוח התנהגות שבוע אחרי שבוע:")
+    
+    suggested_strongs = []
+    strong_reason = ""
+    
+    if last_draw['חזק'] == prev_draw['חזק'] - 1 or (prev_draw['חזק'] == 1 and last_draw['חזק'] == 7):
+        next_logica
