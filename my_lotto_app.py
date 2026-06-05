@@ -6,7 +6,7 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - מחקר רצפים חזקים", layout="centered")
+st.set_page_config(page_title="לוטו חכם - גרסה יציבה 6 שנים", layout="centered")
 
 # קוד עיצוב בסיסי ויציב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
 st.markdown("""
@@ -180,12 +180,12 @@ st.divider()
 # === חלק 2: לוח תחזיות ===
 st.header("🔮 תמונת המצב והתחזית הטכנולוגית (נתוני 6 שנים)")
 
-with St.expander("📊 סעיף 1: ניתוח סטטיסטי מורחב (חמים מול קרים)"):
+with st.expander("📊 סעיף 1: ניתוח סטטיסטי מורחב (חמים מול קרים)"):
     st.write(f"**המספרים החמים ביותר ב-6 השנים האחרונות:** {', '.join(map(str, top_20_pool[:6]))}")
     st.write(f"**המספרים הקרים ביותר ב-6 השנים האחרונות:** {', '.join(map(str, cold_numbers))}")
     st.write(f"**המספר החזק השכיח ביותר ב-6 השנים האחרונות:** מספר {strong_counts.most_common(1)[0][0] if strong_counts else 'אין'}")
 
-with St.expander("📈 סעיף 2: אסטרטגיית מרווחים ואיזון"):
+with st.expander("📈 סעיף 2: אסטרטגיית מרווחים ואיזון"):
     even_half = 0
     for r in records_extended:
         evens = sum(1 for n in r['מספרים'] if n % 2 == 0)
@@ -194,7 +194,7 @@ with St.expander("📈 סעיף 2: אסטרטגיית מרווחים ואיזו�
     st.write(f"**המלצת המכונה:** יחס אופטימלי של 3 זוגיים ו-3 אי זוגיים.")
     st.write(f"**אימות היסטורי לאורך 6 שנים:** דפוס זה הופיע ב-{even_pct:.1f}% מההגרלות בארכיון.")
 
-with St.expander("⚡ סעיף 3: ניתוח פיזיקלי (סטיית מכונה מורחבת)"):
+with st.expander("⚡ סעיף 3: ניתוח פיזיקלי (סטיית מכונה מורחבת)"):
     recent_draws = records_extended[-10:] if len(records_extended) >= 10 else records_extended
     recent_numbers = []
     for r in recent_draws: recent_numbers.extend(r['מספרים'])
@@ -202,10 +202,10 @@ with St.expander("⚡ סעיף 3: ניתוח פיזיקלי (סטיית מכונ
     wave_numbers = [n for n, c in recent_counts.most_common(3)]
     st.write(f"**מספרים במומנטום חם (10 הגרלות אחרונות):** {', '.join(map(str, wave_numbers))}")
 
-with St.expander("🎲 סעיף 4: סימולציית מונטה קרלו"):
+with st.expander("🎲 סעיף 4: סימולציית מונטה קרלו"):
     st.write(f"**מנוע סימולציה פעיל:** מסנן צירופים חריגים על בסיס {len(records_extended)} ההגרלות האחרונות.")
 
-with St.expander("🎯 סעיף 5: תורת המשחקים (ללא שותפים)"):
+with st.expander("🎯 סעיף 5: תורת המשחקים (ללא שותפים)"):
     st.write("**אסטרטגיית חלוקה:** שילוב מספרים מעל 31 כדי למנוע הצטלבות עם תאריכי ימי הולדת.")
 
 st.divider()
@@ -241,7 +241,7 @@ if total_cases > 0:
     stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי_עזר", ascending=False).drop(columns=["סיכוי_עזר"])
     st.dataframe(stats_df.set_index("המספר החזק הבא"), use_container_width=True)
 else:
-    st.info(f"לאמצאו מספיק נתונים היסטוריים על מספרים שעלו אחרי המספר {chosen_strong}.")
+    st.info(f"לא נמצאו מספיק נתונים היסטוריים על מספרים שעלו אחרי המספר {chosen_strong}.")
     
 st.divider()
 
@@ -404,14 +404,11 @@ def analyze_strong_sequences(history):
     current_seq = []
     last_seq_end_idx = None
     
-    # סריקה לאיתור רצפים יורדים (שבוע אחרי שבוע)
     for i in range(len(history)):
         if i == 0:
             current_seq = [history[i]]
             continue
             
-        # בדיקה האם המספר החזק הנוכחי קטן בדיוק ב-1 (או עוקב יורד) מהקודם
-        # ניתן להרחיב לכל ירידה, כאן נבדוק ירידה עוקבת ישירה (כמו 6 ואז 5)
         prev_strong = current_seq[-1]['חזק']
         curr_strong = history[i]['חזק']
         
@@ -419,11 +416,9 @@ def analyze_strong_sequences(history):
             current_seq.append(history[i])
         else:
             if len(current_seq) >= 3:
-                # מצאנו רצף משמעותי של 3 שבועות ומעלה
                 seq_str = " -> ".join([str(d['חזק']) for d in current_seq])
                 draw_range = f"הגרלות {i - len(current_seq) + 1} עד {i}"
                 
-                # חישוב מרחק (זמן) מהרצף הקודם
                 distance = "רצף ראשון בארכיון"
                 if last_seq_end_idx is not None:
                     distance = f"{ (i - len(current_seq) + 1) - last_seq_end_idx } הגרלות"
@@ -432,13 +427,12 @@ def analyze_strong_sequences(history):
                     "מיקום הרצף": draw_range,
                     "אורך הרצף (בשבועות)": f"{len(current_seq)} שבועות",
                     "מהלך הרצף": seq_str,
-                    "כמה זמן עבר מהרצף הקודם": distance
+                    "כמות ההגרלות שעברו מהרצף הקודם": distance
                 })
                 last_seq_end_idx = i
                 
             current_seq = [history[i]]
             
-    # בדיקת רצף אחרון שנשאר בלולאה
     if len(current_seq) >= 3:
         seq_str = " -> ".join([str(d['חזק']) for d in current_seq])
         draw_range = f"הגרלות {len(history) - len(current_seq) + 1} עד {len(history)}"
@@ -449,7 +443,7 @@ def analyze_strong_sequences(history):
             "מיקום הרצף": draw_range,
             "אורך הרצף (בשבועות)": f"{len(current_seq)} שבועות",
             "מהלך הרצף": seq_str,
-            "כמה זמן עבר מהרצף הקודם": distance
+            "כמות ההגרלות שעברו מהרצף הקודם": distance
         })
 
     if sequences_found:
