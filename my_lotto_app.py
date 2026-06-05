@@ -461,7 +461,7 @@ def analyze_strong_sequences(history):
         st.dataframe(seq_df.set_index("מיקום הרצף"), use_container_width=True)
     return sequences_found
 
-_ = analyze_strong_sequences(records_extended)
+analyze_strong_sequences(records_extended)
 
 # === חלק 7: ניתוח תופעות ב-10 הגרלות אחרונות ===
 def analyze_recent_10_phenomena(history):
@@ -514,7 +514,7 @@ def generate_lotto_predictions(history, magnetic_pool):
     st.divider()
     st.subheader("🔮 מנוע המלצות אוטומטי המבוסס על תופעות שזוהו")
     
-    if len(history) < 3:
+    if len(history) < 2:
         st.info("אין מספיק נתונים לחיזוי.")
         return
         
@@ -530,12 +530,13 @@ def generate_lotto_predictions(history, magnetic_pool):
     strong_reason = ""
     
     if last_draw['חזק'] == prev_draw['חזק'] - 1 or (prev_draw['חזק'] == 1 and last_draw['חזק'] == 7):
-        # זיהוי רצף יורד פעיל (כמו 3 ואז 2)
         next_logical = last_draw['חזק'] - 1 if last_draw['חזק'] > 1 else 7
-        suggested_strongs = [next_logical, 7 if next_logical == 1 else next_logical + 1]
+        backup_val = 7 if next_logical == 1 else next_logical + 1
+        suggested_strongs = [next_logical, backup_val]
         strong_reason = f"המערכת זיהתה רצף יורד פעיל בשבועות האחרונים ({prev_draw['חזק']} -> {last_draw['חזק']}). לפי חוקיות זו, היעד הבא הוא **{next_logical}**."
     elif last_draw['חזק'] == prev_draw['חזק'] + 1 or (prev_draw['חזק'] == 7 and last_draw['חזק'] == 1):
-        # זיהוי רצף עולה פעיל
         next_logical = last_draw['חזק'] + 1 if last_draw['חזק'] < 7 else 1
         suggested_strongs = [next_logical]
-        strong_reason = f"המערכת זיהתה רצף עולה פעיל בשבועות האחרונים ({prev_draw['חזק']} -> {last_draw['חזק']}). לפי חוקיות זו, היעד הבא הוא **{next_logical}**
+        strong_reason = f"המערכת זיהתה רצף עולה פעיל בשבועות האחרונים ({prev_draw['חזק']} -> {last_draw['חזק']}). לפי חוקיות זו, היעד הבא הוא **{next_logical}**."
+    else:
+        backup_logical = last_dra
