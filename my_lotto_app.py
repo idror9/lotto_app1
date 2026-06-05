@@ -6,7 +6,7 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - 3 כפתורי אסטרטגיה", layout="centered")
+st.set_page_config(page_title="לוטו חכם - גרסה יציבה", layout="centered")
 
 # קוד עיצוב בסיסי ויציב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
 st.markdown("""
@@ -53,7 +53,7 @@ st.markdown("""
         padding: 15px;
         border-radius: 10px;
         margin: 15px 0px;
-        color: #0b2545;
+        color: #000000 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -394,7 +394,7 @@ def get_recent_10_pool(history):
 
 recent_magnetic_pool = get_recent_10_pool(records_extended)
 
-# כפתור 3 החדש - הפקה חכמה של 12 מספרים חזותיים עם כיתוב שחור קשיח ומובהק
+# כפתור 3 - הפקה חכמה של 12 מספרים חזותיים עם כיתוב שחור קשיח ומובהק
 if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי תופעות"):
     layer_1 = recent_magnetic_pool[:4]
     layer_2 = [n for n in top_20_pool if n not in layer_1][:4]
@@ -410,10 +410,9 @@ if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי 
     
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
     
-    # שינוי לעיצוב קשיח עם גופן שחור מובהק (color: #000000 !important) למניעת היעלמות טקסט
     st.markdown(f"""
     <div style="background-color: #fff3cd; padding: 15px; border-right: 6px solid #ffc107; font-weight: bold; margin-bottom: 15px; border-radius: 5px; color: #000000 !important;">
-        <span style="color: #000000 !important; font-size: 1.05em;">🔥 המערכת בנתה עבורך בריכת 12 מספרים אופטימלית המשלבת מומנטום קצר טווח, יציבות של 6 שנים ואיזון סטטיסטי:</span><br><br>
+        <span style="color: #000000 !important; font-size: 1.05em;">🔥 המערכת בנתה בריכת 12 מספרים אופטימלית (מומנטום, יציבות ואיזון):</span><br><br>
         <span style="color: #000000 !important; font-size: 1.15em;">🎯 12 המספרים שנבחרו: {', '.join(map(str, generated_12))}</span>
     </div>
     """, unsafe_allow_html=True)
@@ -537,8 +536,10 @@ def analyze_recent_10_phenomena(history):
     
     st.write("📊 **ממצאים חמים מתוך גל 10 ההגרלות האחרון:**")
     if magnetic_nums:
-        st.warning(f"🔥 **מספרים מגנטיים במומנטום קיצוני:** {', '.join(map(str, magnetic_nums))} (עלו לפחות 3 פעמים ב-10 ההגרלות האחרונות).")
+        st.warning(f"🔥 **מספרים מגנטיים במומנטום קיצוני:** {', '.join(map(str, magnetic_nums))} (עלו לפחות 3 פעמים ב-10 האחרונות).")
     else:
-        st.info("✔️ **פיזור מספרים תקין:** לא זוהו מספרים רגילים שחזרו על עצמם בצורה חריגה ב-10 האחרונות.")
+        st.info("✔️ **פיזור מספרים תקין:** לא זוהו מספרים שחזרו בצורה חריגה ב-10 האחרונות.")
         
-    st.success(f"🎯 **המספר החזק השולט בגל הנוכחי:** מספר **{top_strong}** (עלה {top_strong_count} פע
+    # פישוט וקיצור המחרוזת הזו למניעת שגיאות חיתוך
+    st.success(f"🎯 **המספר החזק השולט בגל הנוכחי:** מספר **{top_strong}** (עלה {top_strong_count} פעמים).")
+    st.info(f"📊 **מדד הדחיסות בגל האחרון:** זוהו {consecutive_count} מקרים של מספרים עוקבים צ
