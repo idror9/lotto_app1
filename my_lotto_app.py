@@ -1,573 +1,238 @@
 import streamlit as st
 import pandas as pd
 from collections import Counter
-import random
-import os
-import re
+import random, os, re
 
-st.set_page_config(
-    page_title="לוטו חכם - גרסה יציבה", 
-    layout="centered"
-)
+st.set_page_config(page_title="לוטו חכם", layout="centered")
 
+# עיצוב RTL נקי ומהיר
 st.markdown("""
     <style>
-    html, body, [data-testid="stAppViewContainer"] {
-        direction: RTL;
-        text-align: right;
-    }
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    
-    .stButton>button {
-        width: 100%; 
-        border-radius: 20px; 
-        height: 3.5em; 
-        font-weight: bold; 
-        margin-bottom: 10px;
-    }
-    
-    div[data-testid="stMarkdownContainer"] p, 
-    h1, h2, h3, h4, h5, h6 {
-        text-align: right;
-        direction: RTL;
-    }
-    div[data-testid="stSelectbox"] label {
-        text-align: right;
-        width: 100%;
-    }
-    div[data-testid="stSelectbox"] div[data-baseweb="select"] {
-        direction: RTL;
-        text-align: right;
-    }
-    
-    div[data-testid="stDataFrame"] {
-        direction: RTL;
-        text-align: right;
-    }
+    html, body, [data-testid="stAppViewContainer"] { direction: RTL; text-align: right; }
+    #MainMenu, footer, header { visibility: hidden; }
+    .stButton>button { width: 100%; border-radius: 20px; height: 3.5em; font-weight: bold; }
+    div[data-testid="stMarkdownContainer"] p, h1, h2, h3, h4, h5, h6 { text-align: right; direction: RTL; }
+    div[data-testid="stSelectbox"] div[data-baseweb="select"] { direction: RTL; text-align: right; }
+    div[data-testid="stDataFrame"] { direction: RTL; text-align: right; }
     </style>
     """, unsafe_allow_html=True)
 
 def load_any_lotto_file():
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    possible_names = [
-        'lotto2026.csv', 'Lotto2026.csv', 
-        'lotto2026.CSV', 'Lotto2026.CSV'
-    ]
     file_path = None
-    
-    for name in possible_names:
+    for name in ['lotto2026.csv', 'Lotto2026.csv', 'lotto2026.CSV']:
         test_path = os.path.join(current_dir, name)
         if os.path.exists(test_path):
             file_path = test_path
             break
-            
-    if file_path is None:
-        for name in possible_names:
-            if os.path.exists(name):
-                file_path = name
-                break
-                
-    if file_path is None:
+    if file_path is None or not os.path.exists(file_path):
         return None
-
-    content = ""
-    encodings = [
-        'utf-8-sig', 'windows-1255', 
-        'utf-8', 'ansi', 'iso-8859-8'
-    ]
-    for enc in encodings:
-        try:
-            with open(file_path, 'r', encoding=enc, errors='ignore') as f:
-                content = f.read()
-            if content.strip() and len(content) > 50:
-                break
-        except:
-            continue
-            
-    if not content or not content.strip():
+    try:
+        with open(file_path, 'r', encoding='utf-8-sig', errors='ignore') as f:
+            content = f.read()
+    except:
         return None
         
     records = []
-    lines = content.split('\n')
-    
-    for line in lines:
-        if not line.strip():
-            continue
-            
+    for line in content.split('\n'):
         tokens = re.findall(r'\b\d+\b', line)
-        if not tokens:
-            continue
-            
-        ints = [int(t) for t in tokens]
-        valid_lotto_nums = [n for n in ints if 1 <= n <= 37]
-        
-        if len(valid_lotto_nums) >= 7:
-            strong_candidate = valid_lotto_nums[-1]
-            if 1 <= strong_candidate <= 7:
-                strong_val = strong_candidate
-                lotto_series = valid_lotto_nums[-7:-1]
-            else:
-                strong_val = valid_lotto_nums[0]
-                lotto_series = valid_lotto_nums[1:7]
-                
-            if len(lotto_series) == 6 and 1 <= strong_val <= 7:
-                records.append({
-                    'מספרים': sorted(lotto_series),
-                    'חזק': strong_val
-                })
-                
+        ints = [int(t) for t in tokens if 1 <= int(t) <= 37]
+        if len(ints) >= 7:
+            s_val = ints[-1] if 1 <= ints[-1] <= 7 else ints[0]
+            series = ints[-7:-1] if 1 <= ints[-1] <= 7 else ints[1:7]
+            if len(series) == 6 and 1 <= s_val <= 7:
+                records.append({'מספרים': sorted(series), 'חזק': s_val})
     return records
 
 all_historical_records = load_any_lotto_file()
-TOTAL_6_YEARS_DRAWS = 624
+TOTAL_DRAWS = 624
 
 if not all_historical_records:
     all_historical_records = []
     random.seed(42)
-    for i in range(TOTAL_6_YEARS_DRAWS):
+    for _ in range(TOTAL_DRAWS):
         all_historical_records.append({
             'מספרים': sorted(random.sample(range(1, 38), 6)),
             'חזק': random.randint(1, 7)
         })
-    is_simulation = True
+    is_sim = True
 else:
-    is_simulation = False
+    is_sim = False
 
-if not is_simulation:
-    records_extended = all_historical_records[:TOTAL_6_YEARS_DRAWS]
-    records_extended.reverse()
-else:
-    records_extended = all_historical_records
+records_extended = all_historical_records[:TOTAL_DRAWS]
+if not is_sim: records_extended.reverse()
 
-all_numbers = []
-all_strong = []
+all_numbers, all_strong = [], []
 for r in records_extended:
     all_numbers.extend(r['מספרים'])
     all_strong.append(r['חזק'])
         
 counts = Counter(all_numbers)
 strong_counts = Counter(all_strong)
-
 top_20_pool = [n for n, c in counts.most_common(20)]
-if len(top_20_pool) < 20:
-    remaining = [n for n in range(1, 38) if n not in top_20_pool]
-    top_20_pool.extend(remaining[:20 - len(top_20_pool)])
-
 cold_numbers = [n for n in range(1, 38) if n not in top_20_pool][:7]
 
-st.title("🎰 לוטו חכם: מנוע אנליזה מורחב (6 שנים)")
-if is_simulation:
+st.title("🎰 לוטו חכם - אנליזה מורחבת 6 שנים")
+if is_sim:
     st.warning("⚠️ מציג נתוני סימולציה זמניים של 6 שנים.")
 else:
-    msg = f"✔️ החיבור הצליח! מנתח {len(records_extended)} הגרלות אמת."
-    st.success(msg)
+    st.success(f"✔️ מנתח {len(records_extended)} הגרלות אמת מהקובץ.")
 
-st.subheader("💰 ניתוח פיננסי: מספרים חזקים (6 שנים אחרונות)")
-
+st.subheader("💰 ניתוח פיננסי: מספרים חזקים")
 financial_data = []
-for strong_num in range(1, 8):
-    matching_draws = [r for r in records_extended if r.get('חזק') == strong_num]
-    total_draws_for_num = len(matching_draws)
-    if records_extended:
-        final_power = strong_counts.get(strong_num, 0) / len(records_extended) * 100
-    else:
-        final_power = 0
-    
+for i in range(1, 8):
+    total_i = sum(1 for r in records_extended if r.get('חזק') == i)
+    power = (strong_counts.get(i, 0) / len(records_extended) * 100) if records_extended else 0
     financial_data.append({
-        "מספר חזק": f"מספר {strong_num}",
-        "הופעות ב-6 השנים האחרונות": f"{total_draws_for_num} פעמים",
-        "מדד עוצמה מצטבר": f"{final_power:.1f}%",
-        "סדר_מיון": final_power
+        "מספר חזק": f"מספר {i}",
+        "הופעות ב-6 שנים": f"{total_i} פעמים",
+        "מדד עוצמה": f"{power:.1f}%",
+        "מיון": power
     })
-    
-financial_df = pd.DataFrame(financial_data).sort_values(by="סדר_מיון", ascending=False).drop(columns=["סדר_מיון"])
-st.dataframe(financial_df.set_index("מספר חזק"), use_container_width=True)
+f_df = pd.DataFrame(financial_data).sort_values(by="מיון", ascending=False).drop(columns=["מיון"])
+st.dataframe(f_df.set_index("מספר חזק"), use_container_width=True)
 
 st.divider()
 
-st.header("🔮 תמונת המצב והתחזית הטכנולוגית (נתוני 6 שנים)")
-
-with st.expander("📊 סעיף 1: ניתוח סטטיסטי מורחב (חמים מול קרים)"):
-    h_str = ", ".join(map(str, top_20_pool[:6]))
-    c_str = ", ".join(map(str, cold_numbers))
-    st.write(f"**המספרים החמים ביותר ב-6 השנים האחרונות:** {h_str}")
-    st.write(f"**המספרים הקרים ביותר ב-6 השנים האחרונות:** {c_str}")
-    top_s_val = strong_counts.most_common(1)[0][0] if strong_counts else 'אין'
-    st.write(f"**המספר החזק השכיח ביותר ב-6 השנים האחרונות:** מספר {top_s_val}")
-
-with st.expander("📈 סעיף 2: אסטרטגיית מרווחים ואיזון"):
-    even_half = 0
-    for r in records_extended:
-        evens = sum(1 for n in r['מספרים'] if n % 2 == 0)
-        if evens == 3: even_half += 1
-    even_pct = (even_half / len(records_extended)) * 100 if records_extended else 0
-    st.write(f"**המלצת המכונה:** יחס אופטימלי של 3 זוגיים ו-3 אי זוגיים.")
-    st.write(f"**אימות היסטורי לאורך 6 שנים:** דפוס זה הופיע ב-{even_pct:.1f}% מההגרלות בארכיון.")
-
-with st.expander("⚡ סעיף 3: ניתוח פיזיקלי (סטיית מכונה מורחבת)"):
-    recent_draws = records_extended[-10:] if len(records_extended) >= 10 else records_extended
-    recent_numbers = []
-    for r in recent_draws: recent_numbers.extend(r['מספרים'])
-    recent_counts = Counter(recent_numbers)
-    wave_numbers = [n for n, c in recent_counts.most_common(3)]
-    w_str = ", ".join(map(str, wave_numbers))
-    st.write(f"**מספרים במומנטום חם (10 הגרלות אחרונות):** {w_str}")
-
-with st.expander("🎲 סעיף 4: סימולציית מונטה קרלו"):
-    st.write(f"**מנוע סימולציה פעיל:** מסנן צירופים חריגים על בסיס {len(records_extended)} ההגרלות האחרונות.")
-
-with st.expander("🎯 סעיף 5: תורת המשחקים (ללא שותפים)"):
-    st.write("**אסטרטגיית חלוקה:** שילוב מספרים מעל 31 כדי למנוע הצטלבות עם תאריכי ימי הולדת.")
-
-st.divider()
-
-st.subheader("🔮 בדיקת סיכוי למספר החזק הבא (ניתוח עומק 6 שנים)")
-chosen_strong = st.selectbox(
-    "בחר את המספר החזק שיצא בהגרלה האחרונה:", 
-    options=list(range(1, 8)), 
-    index=5
-)
-
-next_strong_list = []
+st.subheader("🔮 בדיקת סיכוי למספר החזק הבא")
+chosen_strong = st.selectbox("בחר את המספר החזק האחרון שיצא:", options=list(range(1, 8)), index=5)
+next_list = []
 for i in range(len(records_extended) - 1):
     if records_extended[i].get('חזק') == chosen_strong:
-        next_draw = records_extended[i+1]
-        if next_draw.get('חזק'): 
-            next_strong_list.append(next_draw['חזק'])
-            
-total_cases = len(next_strong_list)
-counts_after_chosen = Counter(next_strong_list)
+        if records_extended[i+1].get('חזק'): next_list.append(records_extended[i+1]['חזק'])
+counts_next = Counter(next_list)
 
-st.write(f"המספר **{chosen_strong}** יצא {total_cases} פעמים לאורך 6 השנים האחרונות בקובץ.")
-
-if total_cases > 0:
-    st.write("📊 **ההסתברות למספר החזק הבא:**")
+if next_list:
     stats_data = []
     for i in range(1, 8):
-        times = counts_after_chosen.get(i, 0)
-        chance = (times / total_cases) * 100
-        stats_data.append({
-            "המספר החזק הבא": f"מספר {i}",
-            "כמה פעמים יצא אחריו בתקופה זו": f"{times} פעמים",
-            "אחוז סיכוי": f"{chance:.1f}%",
-            "סיכוי_עזר": chance
-        })
-    stats_df = pd.DataFrame(stats_data).sort_values(by="סיכוי_עזר", ascending=False).drop(columns=["סיכוי_עזר"])
-    st.dataframe(stats_df.set_index("המספר החזק הבא"), use_container_width=True)
+        times = counts_next.get(i, 0)
+        chance = (times / len(next_list)) * 100
+        stats_data.append({"המספר הבא": f"מספר {i}", "הופעות": f"{times} פעמים", "סיכוי": f"{chance:.1f}%", "מיון": chance})
+    s_df = pd.DataFrame(stats_data).sort_values(by="מיון", ascending=False).drop(columns=["מיון"])
+    st.dataframe(s_df.set_index("המספר הבא"), use_container_width=True)
 else:
-    st.info(f"לא נמצאו מספיק נתונים היסטוריים.")
-    
+    st.info("לא נמצאו מספיק נתונים.")
+
 st.divider()
 
 st.subheader("✍️ הזנת 12 מספרים אישיים לצמצום")
-user_input_str = st.text_input(
-    "הקש 12 מספרים מופרדים בפסיקים:",
-    value=""
-)
-
-def parse_user_numbers(input_str, backup_pool):
-    found_nums = re.findall(r'\b\d+\b', input_str)
-    parsed_ints = list(set([int(n) for n in found_nums if 1 <= int(n) <= 37]))
-    
-    if len(parsed_ints) < 12:
-        needed = 12 - len(parsed_ints)
-        for num in backup_pool:
-            if num not in parsed_ints:
-                parsed_ints.append(num)
-            if len(parsed_ints) == 12:
-                break
-    return sorted(parsed_ints[:12])
-
-user_locked_12 = parse_user_numbers(user_input_str, top_20_pool)
-
-st.write("### הפקת טורים חכמים ומעקב היסטורי מורחב:")
-
-def check_ticket_performance(ticket_nums, ticket_strong, history):
-    summary = {"3 ניחושים": 0, "3 + חזק": 0, "4 ניחושים": 0, "4 + חזק": 0}
-    for draw in history:
-        match_count = len(set(ticket_nums) & set(draw['מספרים']))
-        strong_match = (ticket_strong == draw['חזק'])
-        
-        if match_count == 3 and not strong_match:
-            summary["3 ניחושים"] += 1
-        elif match_count == 3 and strong_match:
-            summary["3 + חזק"] += 1
-        elif match_count == 4 and not strong_match:
-            summary["4 ניחושים"] += 1
-        elif match_count == 4 and strong_match:
-            summary["4 + חזק"] += 1
-    return summary
+user_input_str = st.text_input("הקש 12 מספרים מופרדים בפסיקים:", value="")
+user_locked_12 = list(set([int(n) for n in re.findall(r'\b\d+\b', user_input_str) if 1 <= int(n) <= 37]))
+while len(user_locked_12) < 12:
+    for num in top_20_pool:
+        if num not in user_locked_12: user_locked_12.append(num)
+        if len(user_locked_12) == 12: break
+user_locked_12 = sorted(user_locked_12[:12])
 
 def generate_filtered_tickets(pool_12):
     tickets = []
     for _ in range(8):
-        valid_table = False
+        valid = False
         attempts = 0
         table = []
-        while not valid_table and attempts < 200:
-            table = random.sample(pool_12, 6)
-            table.sort()
-            
+        while not valid and attempts < 200:
+            table = sorted(random.sample(pool_12, 6))
             diffs = [table[j+1] - table[j] for j in range(5)]
             cond_diff = any(d in [1, 2, 3] for d in diffs)
-            
             evens = sum(1 for n in table if n % 2 == 0)
             cond_balance = evens in [2, 3, 4]
-            
             cond_high = any(n > 31 for n in table)
-            
-            if cond_diff and cond_balance and cond_high:
-                valid_table = True
+            if cond_diff and cond_balance and cond_high: valid = True
             attempts += 1
-            
-        if not valid_table:
-            table = sorted(random.sample(pool_12, 6))
+        if not valid: table = sorted(random.sample(pool_12, 6))
         tickets.append(table)
     return tickets
 
-def process_and_render_sequential(tickets, t_strong, history):
+def render_tickets_perf(tickets, t_strong, history):
     st.write("### 🎫 8 הטורים המומלצים למילוי:")
+    rows = [{"טור": f"טור {i+1}", "צירוף": ", ".join(map(str, t)), "חזק": f"מספר {t_strong}"} for i, t in enumerate(tickets)]
+    st.dataframe(pd.DataFrame(rows).set_index("טור"), use_container_width=True)
     
-    table_rows = []
-    for idx, t_nums in enumerate(tickets):
-        table_rows.append({
-            "מספר סידורי": f"טור {idx+1}",
-            "צירוף מספרים": ", ".join(map(str, t_nums)),
-            "מספר חזק": f"מספר {t_strong}"
-        })
-    tickets_df = pd.DataFrame(table_rows)
-    st.dataframe(tickets_df.set_index("מספר סידורי"), use_container_width=True)
-    
-    st.divider()
-    
-    st.write("### 📊 פירוט ביצועים היסטוריים לאורך 6 שנים (לפי טורים):")
-    for idx, t_nums in enumerate(tickets):
-        perf = check_ticket_performance(t_nums, t_strong, history)
-        perf_data = {
-            "קטגוריית זכייה": ["3 ניחושים", "3 + נוסף", "4 ניחושים", "4 + נוסף"],
-            "כמות הצלחות ב-6 שנים": [
-                perf["3 ניחושים"], perf["3 + חזק"], 
-                perf["4 ניחושים"], perf["4 + חזק"]
-            ]
-        }
-        perf_df = pd.DataFrame(perf_data)
-        
-        st.write(f"#### 📋 טור {idx+1}:")
-        st.info(f"**צירוף:** {', '.join(map(str, t_nums))} | **חזק:** {t_strong}")
-        st.dataframe(perf_df.set_index("קטגוריית זכייה"), use_container_width=True)
-        st.write("---")
+    st.write("### 📊 ביצועים היסטוריים ב-6 שנים:")
+    for i, t in enumerate(tickets):
+        sum_3, sum_3s, sum_4, sum_4s = 0, 0, 0, 0
+        for draw in history:
+            m = len(set(t) & set(draw['מספרים']))
+            sm = (t_strong == draw['חזק'])
+            if m == 3 and not sm: sum_3 += 1
+            elif m == 3 and sm: sum_3s += 1
+            elif m == 4 and not sm: sum_4 += 1
+            elif m == 4 and sm: sum_4s += 1
+        perf_df = pd.DataFrame({"קטגוריה": ["3 ניחושים", "3 + חזק", "4 ניחושים", "4 + חזק"], "הצלחות": [sum_3, sum_3s, sum_4, sum_4s]})
+        st.write(f"📋 **טור {i+1}:** {', '.join(map(str, t))} | חזק: {t_strong}")
+        st.dataframe(perf_df.set_index("קטגוריה"), use_container_width=True)
 
 selected_strong = random.randint(1, 7)
 
-if st.button("🎲 כפתור 1: הגרלת סדרות ומרווחים (מתוך 12 המספרים האישיים שלך)"):
-    if not user_input_str.strip():
-        st.warning("💡 לא הזנת מספרים בתיבה, משתמש במאגר ברירת המחדל.")
-        
-    st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-    st.write("**12 המספרים שננעלו לצמצום זה:**")
-    for idx, num in enumerate(user_locked_12):
-        st.write(f"**{idx+1})** {num}")
-    st.write("---")
-    all_tickets = generate_filtered_tickets(user_locked_12)
-    process_and_render_sequential(all_tickets, selected_strong, records_extended)
-    st.balloons()
+if st.button("🎲 כפתור 1: הגרלה מהמספרים האישיים שלך"):
+    st.subheader(f"חזק אחיד שנבחר: {selected_strong}")
+    render_tickets_perf(generate_filtered_tickets(user_locked_12), selected_strong, records_extended)
 
-if st.button("📈 כפתור 2: הגרלת סדרות ומרווחים אוטומטית (מתוך 12 החמים מהקובץ)"):
-    current_hot_12 = sorted(random.sample(top_20_pool, 12))
-    st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-    st.write("**12 המספרים שננעלו אוטומטית מהקובץ:**")
-    for idx, num in enumerate(current_hot_12):
-        st.write(f"**{idx+1})** {num}")
-    st.write("---")
-    all_tickets = generate_filtered_tickets(current_hot_12)
-    process_and_render_sequential(all_tickets, selected_strong, records_extended)
-    st.balloons()
+if st.button("📈 כפתור 2: הגרלה אוטומטית מ-12 החמים ביותר"):
+    st.subheader(f"חזק אחיד שנבחר: {selected_strong}")
+    render_tickets_perf(generate_filtered_tickets(sorted(random.sample(top_20_pool, 12))), selected_strong, records_extended)
 
-def get_recent_10_pool(history):
-    recent_10 = history[-10:] if len(history) >= 10 else history
-    nums = []
-    for d in recent_10: nums.extend(d['מספרים'])
-    counts_10 = Counter(nums)
-    return [n for n, c in counts_10.most_common(6)]
+# כפתור 3 קצר ובטוח - מציג בקוד קשיח ללא HTML
+recent_10 = records_extended[-10:] if len(records_extended) >= 10 else records_extended
+r_nums = []
+for d in recent_10: r_nums.extend(d['מספרים'])
+rec_pool = [n for n, c in Counter(r_nums).most_common(6)]
 
-recent_magnetic_pool = get_recent_10_pool(records_extended)
-
-# כפתור 3 המאובטח - מציג את 12 המספרים בפורמט תיבת קוד מערכת קשיחה וברורה
 if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי תופעות"):
-    layer_1 = recent_magnetic_pool[:4]
-    layer_2 = [n for n in top_20_pool if n not in layer_1][:4]
-    layer_3 = [n for n in cold_numbers if n not in layer_1 and n not in layer_2][:4]
-    
-    generated_12 = sorted(list(set(layer_1 + layer_2 + layer_3)))
-    
-    if len(generated_12) < 12:
+    g_12 = sorted(list(set(rec_pool[:4] + top_20_pool[:4] + cold_numbers[:4])))
+    while len(g_12) < 12:
         for num in top_20_pool:
-            if num not in generated_12: generated_12.append(num)
-            if len(generated_12) == 12: break
-    generated_12.sort()
-    
-    st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
-    
+            if num not in g_12: g_12.append(num)
+            if len(g_12) == 12: break
+    g_12.sort()
+    st.subheader(f"חזק אחיד שנבחר: {selected_strong}")
     st.write("### 🔥 בריכת 12 מספרים אופטימלית (מומנטום, יציבות ואיזון):")
-    
-    # הצגה מוגנת בתוך קוביית קוד מערכת קשיחה שאינה מושפעת משום רקע לבן או כהה
-    lotto_text = ", ".join(map(str, generated_12))
-    st.code(f"🎯 12 המספרים שנבחרו עבורך: {lotto_text}", language="text")
-    
-    st.write("---")
-    all_tickets = generate_filtered_tickets(generated_12)
-    process_and_render_sequential(all_tickets, selected_strong, records_extended)
-    st.balloons()
+    st.code(f"🎯 12 המספרים שנבחרו עבורך: {', '.join(map(str, g_12))}", language="text")
+    render_tickets_perf(generate_filtered_tickets(g_12), selected_strong, records_extended)
 
-def display_historical_archive_table(history):
-    st.divider()
-    st.subheader("🏆 ארכיון הצירופים שעלו בגורל ב-6 השנים האחרונות")
-    
-    draws_list = []
-    for idx, draw in enumerate(history):
-        draws_list.append({
-            "מספר סידורי": f"הגרלה {idx+1}",
-            "6 המספרים שעלו": ", ".join(map(str, draw['מספרים'])),
-            "המספר החזק (נוסף)": f"מספר {draw['חזק']}"
-        })
-            
-    if draws_list:
-        archive_df = pd.DataFrame(draws_list)
-        st.dataframe(archive_df.set_index("מספר סידורי"), use_container_width=True)
-    else:
-        st.info("לא נמצאו נתוני הגרלות בקובץ ה-CSV.")
+st.divider()
 
-display_historical_archive_table(records_extended)
-
-def analyze_strong_sequences(history):
-    st.divider()
-    st.subheader("🔍 מחקר רצפים: מתי חוזר רצף מספר חזק יורד?")
-    
-    sequences_found = []
-    current_seq = []
-    last_seq_end_idx = None
-    
-    for i in range(len(history)):
-        if i == 0:
-            current_seq = [history[i]]
-            continue
-            
-        prev_strong = current_seq[-1]['חזק']
-        curr_strong = history[i]['חזק']
-        
-        if curr_strong == prev_strong - 1 or (prev_strong == 1 and curr_strong == 7):
-            current_seq.append(history[i])
+# חלק 5 + 6 + 7 + 8: מנועי סריקה והמלצות שבועיות
+st.subheader("🏆 ארכיון ומחקר רצפים יורדים")
+with st.expander("🔍 לחץ כאן לצפייה במחקר הרצפים וזמני המחזור"):
+    seq_found, current_seq, last_idx = [], [], None
+    for i in range(len(records_extended)):
+        if i == 0: current_seq = [records_extended[i]]; continue
+        p_s, c_s = current_seq[-1]['חזק'], records_extended[i]['חזק']
+        if c_s == p_s - 1 or (p_s == 1 and c_s == 7): current_seq.append(records_extended[i])
         else:
             if len(current_seq) >= 3:
-                seq_str = " -> ".join([str(d['חזק']) for d in current_seq])
-                draw_range = f"הגרלות {i - len(current_seq) + 1} עד {i}"
-                
-                distance = "רצף ראשון בארכיון"
-                if last_seq_end_idx is not None:
-                    distance = f"{ (i - len(current_seq) + 1) - last_seq_end_idx } הגרלות"
-                    
-                sequences_found.append({
-                    "מיקום הרצף": draw_range,
-                    "אורך הרצף (בשבועות)": f"{len(current_seq)} שבועות",
-                    "מהלך הרצף": seq_str,
-                    "כמות ההגרלות שעברו מהרצף הקודם": distance
-                })
-                last_seq_end_idx = i
-                
-            current_seq = [history[i]]
+                dist = "רצף ראשון" if last_idx is None else f"{i - len(current_seq) - last_idx} הגרלות"
+                seq_found.append({"מיקום": f"הגרלות {i-len(current_seq)} עד {i}", "אורך": f"{len(current_seq)} שבועות", "מהלך": " -> ".join([str(d['חזק']) for d in current_seq]), "זמן מחזור": dist})
+                last_idx = i
+            current_seq = [records_extended[i]]
+    if seq_found: st.dataframe(pd.DataFrame(seq_found).set_index("מיקום"), use_container_width=True)
+
+st.subheader("⚡ מנוע סריקה מהירה והמלצות אוטומטיות")
+if len(records_extended) >= 2:
+    last_d, prev_d = records_extended[-1], records_extended[-2]
+    all_r10, s_r10, ev_c, c_c = [], [], 0, 0
+    for d in recent_10:
+        all_r10.extend(d['מספרים']); s_r10.append(d['חזק'])
+        ev_c += sum(1 for n in d['מספרים'] if n % 2 == 0)
+        for j in range(len(d['מספרים']) - 1):
+            if d['מספרים'][j+1] - d['מספרים'][j] == 1: c_c += 1
             
-    if len(current_seq) >= 3:
-        seq_str = " -> ".join([str(d['חזק']) for d in current_seq])
-        draw_range = f"הגרלות {len(history) - len(current_seq) + 1} עד {len(history)}"
-        distance = "רצף אחרון בארכיון"
-        if last_seq_end_idx is not None:
-            distance = f"{ (len(history) - len(current_seq) + 1) - last_seq_end_idx } הגרלות"
-        sequences_found.append({
-            "מיקום הרצף": draw_range,
-            "אורך הרצף (בשבועות)": f"{len(current_seq)} שבועות",
-            "מהלך הרצף": seq_str,
-            "כמות ההגרלות שעברו מהרצף הקודם": distance
-        })
-
-    if sequences_found:
-        seq_df = pd.DataFrame(sequences_found)
-        st.dataframe(seq_df.set_index("מיקום הרצף"), use_container_width=True)
-    return sequences_found
-
-analyze_strong_sequences(records_extended)
-
-def analyze_recent_10_phenomena(history):
-    st.divider()
-    st.subheader("⚡ מנוע סריקה מהירה: תופעות ב-10 ההגרלות האחרונות")
+    mag_nums = [num for num, count in Counter(all_r10).items() if count >= 3]
+    top_s10, c_s10 = Counter(s_r10).most_common(1)[0]
+    pct_ev = (ev_c / (len(recent_10) * 6)) * 100
     
-    recent_10 = history[-10:] if len(history) >= 10 else history
-    if not recent_10: return []
-        
-    all_rec_numbers = []
-    all_rec_strong = []
-    consecutive_count = 0
-    even_count = 0
-    total_nums_checked = 0
+    st.write(f"🎯 **חזק שולט ב-10 האחרונות:** מספר {top_s10} (עלה {c_s10} פעמים).")
+    st.write(f"📊 **מדד דחיסות ואיזון:** {c_c} מקרים עוקבים | {pct_ev:.1f}% זוגיים.")
     
-    for draw in recent_10:
-        nums = draw['מספרים']
-        all_rec_numbers.extend(nums)
-        all_rec_strong.append(draw['חזק'])
-        total_nums_checked += len(nums)
-        even_count += sum(1 for n in nums if n % 2 == 0)
-        
-        for j in range(len(nums) - 1):
-            if nums[j+1] - nums[j] == 1:
-                consecutive_count += 1
-                
-    num_counts = Counter(all_rec_numbers)
-    strong_counts_10 = Counter(all_rec_strong)
+    # חישוב המלצות שבועיות קשיח
+    s_rec = [last_d['חזק'] - 1 if last_d['חזק'] > 1 else 7]
+    if last_d['חזק'] == prev_d['חזק'] - 1 or (prev_d['חזק'] == 1 and last_d['חזק'] == 7):
+        s_rec = [last_d['חזק'] - 1 if last_d['חזק'] > 1 else 7, 7 if last_d['חזק'] - 1 == 1 else last_d['חזק']]
     
-    magnetic_nums = [num for num, count in num_counts.items() if count >= 3]
-    top_strong, top_strong_count = strong_counts_10.most_common(1)[0]
-    even_pct = (even_count / total_nums_checked * 100) if total_nums_checked else 0
+    sticky = list(set(last_d['מספרים']) & set(prev_d['מספרים']))
+    r_rec = sticky if sticky else (mag_nums[:3] if mag_nums else [12, 24, 25])
     
-    st.write("📊 **ממצאים חמים מתוך גל 10 ההגרלות האחרון:**")
-    if magnetic_nums:
-        m_nums_str = ", ".join(map(str, magnetic_nums))
-        st.warning(f"🔥 **מספרים מגנטיים במומנטום קיצוני:** {m_nums_str}")
-    else:
-        st.info("✔️ **פיזור מספרים תקין.**")
-        
-    st.success(f"🎯 **המספר החזק השולט בגל הנוכחי:** מספר **{top_strong}** ({top_strong_count} פעמים).")
-    st.info(f"📊 **מדד הדחיסות בגל האחרון:** זוהו {consecutive_count} מקרים של עוקבים.")
-    st.write(f"⚖️ **איזון זוגי/אי-זוגי נוכחי:** מורכב מ-{even_pct:.1f}% מספרים זוגיים.")
-    
-    return magnetic_nums
-
-recent_magnetic = analyze_recent_10_phenomena(records_extended)
-
-# מנוע המלצות מאובטח וקשיח ללא שום שימוש ב-HTML
-def generate_lotto_predictions(history, magnetic_pool):
-    st.divider()
-    st.subheader("🔮 מנוע המלצות אוטומטי המבוסס על תופעות שזוהו")
-    
-    if len(history) < 2:
-        st.info("אין מספיק נתונים לחיזוי.")
-        return
-        
-    last_draw = history[-1]
-    prev_draw = history[-2]
-    
-    st.write("### 🔎 ניתוח התנהגות שבוע אחרי שבוע:")
-    
-    suggested_strongs = []
-    strong_reason = ""
-    
-    cond_down_1 = (last_draw['חזק'] == prev_draw['חזק'] - 1)
-    cond_down_2 = (prev_draw['חזק'] == 1 and last_draw['חזק'] == 7)
-    
-    cond_up_1 = (last_draw['חזק'] == prev_draw['חזק'] + 1)
-    cond_up_2 = (prev_draw['חזק'] == 7 and last_draw['חזק'] == 1)
-    
-    if cond_down_1 or cond_down_2:
-        next_logical = last_draw['חזק'] - 1 if last_draw['חזק'] > 1 else 7
-        backup_val = 7 if next_logical == 1 else next_logical + 1
-        suggested_strongs = [next_lo
+    st.write("### 💡 המלצות המנוע להגרלה הקרובה:")
+    st.code(f"🔮 מספרים חזקים מומלצים: {', '.join(map(str, s_rec))}", language="text")
+    st.code(f"🎰 מספרים רגילים לשילוב: {', '.join(map(str, sorted(list(set(r_rec)))))}", language="text")
