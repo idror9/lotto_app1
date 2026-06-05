@@ -46,15 +46,6 @@ st.markdown("""
         direction: RTL;
         text-align: right;
     }
-    
-    .prediction-box {
-        background-color: #f0f7ff;
-        border: 2px dashed #1e88e5;
-        padding: 15px;
-        border-radius: 10px;
-        margin: 15px 0px;
-        color: #000000 !important;
-    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -403,6 +394,7 @@ def get_recent_10_pool(history):
 
 recent_magnetic_pool = get_recent_10_pool(records_extended)
 
+# כפתור 3 הבטוח - שימוש בתיבת מערכת רשמית של Streamlit למניעת בעיות צבעים
 if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי תופעות"):
     layer_1 = recent_magnetic_pool[:4]
     layer_2 = [n for n in top_20_pool if n not in layer_1][:4]
@@ -418,13 +410,9 @@ if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי 
     
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
     
-    msg_box = f"🎯 12 המספרים שנבחרו: {', '.join(map(str, generated_12))}"
-    st.markdown(f"""
-    <div style="background-color: #fff3cd; padding: 15px; border-right: 6px solid #ffc107; font-weight: bold; margin-bottom: 15px; border-radius: 5px; color: #000000 !important;">
-        <span style="color: #000000 !important; font-size: 1.05em;">🔥 בריכת 12 מספרים אופטימלית (מוมנטום, יציבות ואיזון):</span><br><br>
-        <span style="color: #000000 !important; font-size: 1.15em;">{msg_box}</span>
-    </div>
-    """, unsafe_allow_html=True)
+    # שימוש בתיבה מובנית ומוגנת של Streamlit (st.warning) שמגיעה עם צבעים קשיחים מראש
+    st.warning("🔥 בריכת 12 מספרים אופטימלית (מומנטום, יציבות ואיזון):")
+    st.success(f"🎯 12 המספרים שנבחרו: {', '.join(map(str, generated_12))}")
     
     st.write("---")
     all_tickets = generate_filtered_tickets(generated_12)
@@ -464,7 +452,7 @@ def analyze_strong_sequences(history):
             current_seq = [history[i]]
             continue
             
-        prev_strong = current_seq[-1]['חזק']
+        prev_strong = current_seq[-1]['חजק']
         curr_strong = history[i]['חזק']
         
         if curr_strong == prev_strong - 1 or (prev_strong == 1 and curr_strong == 7):
@@ -554,6 +542,7 @@ def analyze_recent_10_phenomena(history):
 
 recent_magnetic = analyze_recent_10_phenomena(records_extended)
 
+# מנוע המלצות מאובטח המבוסס כולו על פונקציות טקסט מקוריות ללא HTML חיצוני
 def generate_lotto_predictions(history, magnetic_pool):
     st.divider()
     st.subheader("🔮 מנוע המלצות אוטומטי המבוסס על תופעות שזוהו")
@@ -571,4 +560,8 @@ def generate_lotto_predictions(history, magnetic_pool):
     strong_reason = ""
     
     if last_draw['חזק'] == prev_draw['חזק'] - 1 or (prev_draw['חזק'] == 1 and last_draw['חזק'] == 7):
-        next_logica
+        next_logical = last_draw['חזק'] - 1 if last_draw['חזק'] > 1 else 7
+        backup_val = 7 if next_logical == 1 else next_logical + 1
+        suggested_strongs = [next_logical, backup_val]
+        strong_reason = f"המערכת זיהתה רצף יורד פעיל ({prev_draw['חזק']} -> {last_draw['חזק']}). הבא בתור: {next_logical}."
+    elif last_draw['חזק'] == prev_draw['חזק'] + 1 or (prev_draw['חזק'] == 7
