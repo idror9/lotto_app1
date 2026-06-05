@@ -5,7 +5,6 @@ import random, os, re
 
 st.set_page_config(page_title="לוטו חכם", layout="centered")
 
-# עיצוב RTL נקי ומהיר
 st.markdown("""
     <style>
     html, body, [data-testid="stAppViewContainer"] { direction: RTL; text-align: right; }
@@ -49,7 +48,7 @@ TOTAL_DRAWS = 624
 
 if not all_historical_records:
     all_historical_records = []
-    random.seed(42)
+    random.seed(random.randint(1, 10000))
     for _ in range(TOTAL_DRAWS):
         all_historical_records.append({
             'מספרים': sorted(random.sample(range(1, 38), 6)),
@@ -172,27 +171,32 @@ if st.button("📈 כפתור 2: הגרלה אוטומטית מ-12 החמים ב
     st.subheader(f"חזק אחיד שנבחר: {selected_strong}")
     render_tickets_perf(generate_filtered_tickets(sorted(random.sample(top_20_pool, 12))), selected_strong, records_extended)
 
-# כפתור 3 קצר ובטוח - מציג בקוד קשיח ללא HTML
+# כפתור 3 משופר: בכל לחיצה מוגרלת בריכת 12 מספרים דינמית מתוך התופעות
 recent_10 = records_extended[-10:] if len(records_extended) >= 10 else records_extended
 r_nums = []
 for d in recent_10: r_nums.extend(d['מספרים'])
-rec_pool = [n for n, c in Counter(r_nums).most_common(6)]
+rec_pool = [n for n, c in Counter(r_nums).most_common(12)]
 
 if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי תופעות"):
-    g_12 = sorted(list(set(rec_pool[:4] + top_20_pool[:4] + cold_numbers[:4])))
+    # דגימה אקראית משתנה מתוך שלוש שכבות המידע כדי שלא יחזור על עצמו
+    l1 = random.sample(rec_pool, min(5, len(rec_pool))) if rec_pool else []
+    l2 = random.sample(top_20_pool, 5)
+    l3 = random.sample(cold_numbers, 2)
+    
+    g_12 = sorted(list(set(l1 + l2 + l3)))
     while len(g_12) < 12:
         for num in top_20_pool:
             if num not in g_12: g_12.append(num)
             if len(g_12) == 12: break
     g_12.sort()
+    
     st.subheader(f"חזק אחיד שנבחר: {selected_strong}")
-    st.write("### 🔥 בריכת 12 מספרים אופטימלית (מומנטום, יציבות ואיזון):")
+    st.write("### 🔥 בריכת 12 מספרים אופטימלית משתנה (רענון אוטומטי):")
     st.code(f"🎯 12 המספרים שנבחרו עבורך: {', '.join(map(str, g_12))}", language="text")
     render_tickets_perf(generate_filtered_tickets(g_12), selected_strong, records_extended)
 
 st.divider()
 
-# חלק 5 + 6 + 7 + 8: מנועי סריקה והמלצות שבועיות
 st.subheader("🏆 ארכיון ומחקר רצפים יורדים")
 with st.expander("🔍 לחץ כאן לצפייה במחקר הרצפים וזמני המחזור"):
     seq_found, current_seq, last_idx = [], [], None
@@ -225,9 +229,13 @@ if len(records_extended) >= 2:
     st.write(f"🎯 **חזק שולט ב-10 האחרונות:** מספר {top_s10} (עלה {c_s10} פעמים).")
     st.write(f"📊 **מדד דחיסות ואיזון:** {c_c} מקרים עוקבים | {pct_ev:.1f}% זוגיים.")
     
-    # חישוב המלצות שבועיות קשיח
+    cond_down_1 = (last_d['חזק'] == prev_d['חזק'] - 1)
+    cond_down_2 = (prev_d['חזק'] == 1 and last_d['חזק'] == 7)
+    cond_up_1 = (last_d['חזק'] == prev_d['חזק'] + 1)
+    cond_up_2 = (prev_d['חזק'] == 7 and last_d['חזק'] == 1)
+    
     s_rec = [last_d['חזק'] - 1 if last_d['חזק'] > 1 else 7]
-    if last_d['חזק'] == prev_d['חזק'] - 1 or (prev_d['חזק'] == 1 and last_d['חזק'] == 7):
+    if cond_down_1 or cond_down_2:
         s_rec = [last_d['חזק'] - 1 if last_d['חזק'] > 1 else 7, 7 if last_d['חזק'] - 1 == 1 else last_d['חזק']]
     
     sticky = list(set(last_d['מספרים']) & set(prev_d['מספרים']))
