@@ -394,6 +394,7 @@ def get_recent_10_pool(history):
 
 recent_magnetic_pool = get_recent_10_pool(records_extended)
 
+# כפתור 3 המאובטח - מציג את 12 המספרים בפורמט תיבת קוד מערכת קשיחה וברורה
 if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי תופעות"):
     layer_1 = recent_magnetic_pool[:4]
     layer_2 = [n for n in top_20_pool if n not in layer_1][:4]
@@ -409,13 +410,11 @@ if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי 
     
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
     
-    msg_box = f"🎯 12 המספרים שנבחרו: {', '.join(map(str, generated_12))}"
-    st.markdown(f"""
-    <div style="background-color: #fff3cd; padding: 15px; border-right: 6px solid #ffc107; font-weight: bold; margin-bottom: 15px; border-radius: 5px; color: #000000 !important;">
-        <span style="color: #000000 !important; font-size: 1.05em;">🔥 בריכת 12 מספרים אופטימלית (מוมנטום, יציבות ואיזון):</span><br><br>
-        <span style="color: #000000 !important; font-size: 1.15em;">{msg_box}</span>
-    </div>
-    """, unsafe_allow_html=True)
+    st.write("### 🔥 בריכת 12 מספרים אופטימלית (מומנטום, יציבות ואיזון):")
+    
+    # הצגה מוגנת בתוך קוביית קוד מערכת קשיחה שאינה מושפעת משום רקע לבן או כהה
+    lotto_text = ", ".join(map(str, generated_12))
+    st.code(f"🎯 12 המספרים שנבחרו עבורך: {lotto_text}", language="text")
     
     st.write("---")
     all_tickets = generate_filtered_tickets(generated_12)
@@ -438,7 +437,7 @@ def display_historical_archive_table(history):
         archive_df = pd.DataFrame(draws_list)
         st.dataframe(archive_df.set_index("מספר סידורי"), use_container_width=True)
     else:
-        st.info("לאמצאו נתוני הגרלות בקובץ ה-CSV.")
+        st.info("לא נמצאו נתוני הגרלות בקובץ ה-CSV.")
 
 display_historical_archive_table(records_extended)
 
@@ -545,6 +544,7 @@ def analyze_recent_10_phenomena(history):
 
 recent_magnetic = analyze_recent_10_phenomena(records_extended)
 
+# מנוע המלצות מאובטח וקשיח ללא שום שימוש ב-HTML
 def generate_lotto_predictions(history, magnetic_pool):
     st.divider()
     st.subheader("🔮 מנוע המלצות אוטומטי המבוסס על תופעות שזוהו")
@@ -561,11 +561,13 @@ def generate_lotto_predictions(history, magnetic_pool):
     suggested_strongs = []
     strong_reason = ""
     
-    # פירוק תנאים מורכבים לשורות קצרות לחלוטין למניעת שגיאות סוגרים בנייד
     cond_down_1 = (last_draw['חזק'] == prev_draw['חזק'] - 1)
     cond_down_2 = (prev_draw['חזק'] == 1 and last_draw['חזק'] == 7)
     
     cond_up_1 = (last_draw['חזק'] == prev_draw['חזק'] + 1)
     cond_up_2 = (prev_draw['חזק'] == 7 and last_draw['חזק'] == 1)
     
-  
+    if cond_down_1 or cond_down_2:
+        next_logical = last_draw['חזק'] - 1 if last_draw['חזק'] > 1 else 7
+        backup_val = 7 if next_logical == 1 else next_logical + 1
+        suggested_strongs = [next_lo
