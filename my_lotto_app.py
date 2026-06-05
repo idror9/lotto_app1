@@ -394,7 +394,6 @@ def get_recent_10_pool(history):
 
 recent_magnetic_pool = get_recent_10_pool(records_extended)
 
-# כפתור 3 הבטוח - שימוש בתיבת מערכת רשמית של Streamlit למניעת בעיות צבעים
 if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי תופעות"):
     layer_1 = recent_magnetic_pool[:4]
     layer_2 = [n for n in top_20_pool if n not in layer_1][:4]
@@ -410,9 +409,13 @@ if st.button("🔮 כפתור 3: הפקת 12 מספרים חמים מבוססי 
     
     st.subheader(f"נבחר מספר חזק אחיד: {selected_strong}")
     
-    # שימוש בתיבה מובנית ומוגנת של Streamlit (st.warning) שמגיעה עם צבעים קשיחים מראש
-    st.warning("🔥 בריכת 12 מספרים אופטימלית (מומנטום, יציבות ואיזון):")
-    st.success(f"🎯 12 המספרים שנבחרו: {', '.join(map(str, generated_12))}")
+    msg_box = f"🎯 12 המספרים שנבחרו: {', '.join(map(str, generated_12))}"
+    st.markdown(f"""
+    <div style="background-color: #fff3cd; padding: 15px; border-right: 6px solid #ffc107; font-weight: bold; margin-bottom: 15px; border-radius: 5px; color: #000000 !important;">
+        <span style="color: #000000 !important; font-size: 1.05em;">🔥 בריכת 12 מספרים אופטימלית (מוมנטום, יציבות ואיזון):</span><br><br>
+        <span style="color: #000000 !important; font-size: 1.15em;">{msg_box}</span>
+    </div>
+    """, unsafe_allow_html=True)
     
     st.write("---")
     all_tickets = generate_filtered_tickets(generated_12)
@@ -435,7 +438,7 @@ def display_historical_archive_table(history):
         archive_df = pd.DataFrame(draws_list)
         st.dataframe(archive_df.set_index("מספר סידורי"), use_container_width=True)
     else:
-        st.info("לא נמצאו נתוני הגרלות בקובץ ה-CSV.")
+        st.info("לאמצאו נתוני הגרלות בקובץ ה-CSV.")
 
 display_historical_archive_table(records_extended)
 
@@ -452,7 +455,7 @@ def analyze_strong_sequences(history):
             current_seq = [history[i]]
             continue
             
-        prev_strong = current_seq[-1]['חजק']
+        prev_strong = current_seq[-1]['חזק']
         curr_strong = history[i]['חזק']
         
         if curr_strong == prev_strong - 1 or (prev_strong == 1 and curr_strong == 7):
@@ -542,7 +545,6 @@ def analyze_recent_10_phenomena(history):
 
 recent_magnetic = analyze_recent_10_phenomena(records_extended)
 
-# מנוע המלצות מאובטח המבוסס כולו על פונקציות טקסט מקוריות ללא HTML חיצוני
 def generate_lotto_predictions(history, magnetic_pool):
     st.divider()
     st.subheader("🔮 מנוע המלצות אוטומטי המבוסס על תופעות שזוהו")
@@ -559,9 +561,11 @@ def generate_lotto_predictions(history, magnetic_pool):
     suggested_strongs = []
     strong_reason = ""
     
-    if last_draw['חזק'] == prev_draw['חזק'] - 1 or (prev_draw['חזק'] == 1 and last_draw['חזק'] == 7):
-        next_logical = last_draw['חזק'] - 1 if last_draw['חזק'] > 1 else 7
-        backup_val = 7 if next_logical == 1 else next_logical + 1
-        suggested_strongs = [next_logical, backup_val]
-        strong_reason = f"המערכת זיהתה רצף יורד פעיל ({prev_draw['חזק']} -> {last_draw['חזק']}). הבא בתור: {next_logical}."
-    elif last_draw['חזק'] == prev_draw['חזק'] + 1 or (prev_draw['חזק'] == 7
+    # פירוק תנאים מורכבים לשורות קצרות לחלוטין למניעת שגיאות סוגרים בנייד
+    cond_down_1 = (last_draw['חזק'] == prev_draw['חזק'] - 1)
+    cond_down_2 = (prev_draw['חזק'] == 1 and last_draw['חזק'] == 7)
+    
+    cond_up_1 = (last_draw['חזק'] == prev_draw['חזק'] + 1)
+    cond_up_2 = (prev_draw['חזק'] == 7 and last_draw['חזק'] == 1)
+    
+  
