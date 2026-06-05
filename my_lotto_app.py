@@ -6,7 +6,7 @@ import os
 import re
 
 # הגדרת דף נקייה והסתרת תפריטים מיותרים לנייד
-st.set_page_config(page_title="לוטו חכם - גרסה יציבה 6 שנים", layout="centered")
+st.set_page_config(page_title="לוטו חכם - מנוע חיזוי ותופעות", layout="centered")
 
 # קוד עיצוב בסיסי ויציב ליישור מוחלט מימין לשמאל (RTL) והתאמה לנייד
 st.markdown("""
@@ -44,6 +44,16 @@ st.markdown("""
     div[data-testid="stDataFrame"] {
         direction: RTL;
         text-align: right;
+    }
+    
+    /* עיצוב תיבת ההמלצות החמות */
+    .prediction-box {
+        background-color: #f0f7ff;
+        border: 2px dashed #1e88e5;
+        padding: 15px;
+        border-radius: 10px;
+        margin: 15px 0px;
+        color: #0b2545;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -449,9 +459,83 @@ def analyze_strong_sequences(history):
     if sequences_found:
         seq_df = pd.DataFrame(sequences_found)
         st.dataframe(seq_df.set_index("מיקום הרצף"), use_container_width=True)
-        st.info(f"💡 ניתוח המנוע: נמצאו {len(sequences_found)} רצפים יורדים לאורך 6 השנים האחרונות. תוכל לראות בעמודה השמאלית את כמות ההגרלות המדויקת שעוברת בין פעם לפעם!")
-    else:
-        st.info("לא נמצאו רצפים יורדים רצופים של 3 שבועות ומעלה בחלון הזמן של 6 השנים האחרונות בקובץ.")
+    return sequences_found
 
-# הפעלת מנוע מחקר הרצפים בתחתית הדף
-analyze_strong_sequences(records_extended)
+_ = analyze_strong_sequences(records_extended)
+
+# === חלק 7: ניתוח תופעות ב-10 הגרלות אחרונות ===
+def analyze_recent_10_phenomena(history):
+    st.divider()
+    st.subheader("⚡ מנוע סריקה מהירה: תופעות ב-10 ההגרלות האחרונות")
+    
+    recent_10 = history[-10:] if len(history) >= 10 else history
+    if not recent_10: return []
+        
+    all_rec_numbers = []
+    all_rec_strong = []
+    consecutive_count = 0
+    even_count = 0
+    total_nums_checked = 0
+    
+    for draw in recent_10:
+        nums = draw['מספרים']
+        all_rec_numbers.extend(nums)
+        all_rec_strong.append(draw['חזק'])
+        total_nums_checked += len(nums)
+        even_count += sum(1 for n in nums if n % 2 == 0)
+        
+        for j in range(len(nums) - 1):
+            if nums[j+1] - nums[j] == 1:
+                consecutive_count += 1
+                
+    num_counts = Counter(all_rec_numbers)
+    strong_counts_10 = Counter(all_rec_strong)
+    
+    magnetic_nums = [num for num, count in num_counts.items() if count >= 3]
+    top_strong, top_strong_count = strong_counts_10.most_common(1)[0]
+    even_pct = (even_count / total_nums_checked * 100) if total_nums_checked else 0
+    
+    st.write("📊 **ממצאים חמים מתוך גל 10 ההגרלות האחרון:**")
+    if magnetic_nums:
+        st.warning(f"🔥 **מספרים מגנטיים במומנטום קיצוני:** {', '.join(map(str, magnetic_nums))} (עלו לפחות 3 פעמים ב-10 ההגרלות האחרונות).")
+    else:
+        st.info("✔️ **פיזור מספרים תקין:** לא זוהו מספרים רגילים שחזרו על עצמם בצורה חריגה ב-10 האחרונות.")
+        
+    st.success(f"🎯 **המספר החזק השולט בגל הנוכחי:** מספר **{top_strong}** (עלה {top_strong_count} פעמים בחלון הזמן הזה).")
+    st.info(f"📊 **מדד הדחיסות בגל האחרון:** זוהו {consecutive_count} מקרים של מספרים עוקבים צמודים שרצו יחד.")
+    st.write(f"⚖️ **איזון זוגי/אי-זוגי נוכחי:** הגל האחרון מורכב מ-{even_pct:.1f}% מספרים זוגיים.")
+    
+    return magnetic_nums
+
+recent_magnetic = analyze_recent_10_phenomena(records_extended)
+
+# === חלק 8: מנוע המלצות חכמות מבוסס תופעות שבועיות ===
+def generate_lotto_predictions(history, magnetic_pool):
+    st.divider()
+    st.subheader("🔮 מנוע המלצות אוטומטי המבוסס על תופעות שזוהו")
+    
+    if len(history) < 3:
+        st.info("אין מספיק נתונים לחיזוי.")
+        return
+        
+    last_draw = history[-1]
+    prev_draw = history[-2]
+    
+    st.write("### 🔎 ניתוח התנהגות שבוע אחרי שבוע (Week-by-Week Breakdown):")
+    
+    # ---------------------------------------------
+    # תופעה 1: ניתוח המגמה השבועית של המספר החזק
+    # ---------------------------------------------
+    suggested_strongs = []
+    strong_reason = ""
+    
+    if last_draw['חזק'] == prev_draw['חזק'] - 1 or (prev_draw['חזק'] == 1 and last_draw['חזק'] == 7):
+        # זיהוי רצף יורד פעיל (כמו 3 ואז 2)
+        next_logical = last_draw['חזק'] - 1 if last_draw['חזק'] > 1 else 7
+        suggested_strongs = [next_logical, 7 if next_logical == 1 else next_logical + 1]
+        strong_reason = f"המערכת זיהתה רצף יורד פעיל בשבועות האחרונים ({prev_draw['חזק']} -> {last_draw['חזק']}). לפי חוקיות זו, היעד הבא הוא **{next_logical}**."
+    elif last_draw['חזק'] == prev_draw['חזק'] + 1 or (prev_draw['חזק'] == 7 and last_draw['חזק'] == 1):
+        # זיהוי רצף עולה פעיל
+        next_logical = last_draw['חזק'] + 1 if last_draw['חזק'] < 7 else 1
+        suggested_strongs = [next_logical]
+        strong_reason = f"המערכת זיהתה רצף עולה פעיל בשבועות האחרונים ({prev_draw['חזק']} -> {last_draw['חזק']}). לפי חוקיות זו, היעד הבא הוא **{next_logical}**
